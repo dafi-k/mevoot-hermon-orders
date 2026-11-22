@@ -1,0 +1,885 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>נבחרת צימרי מבואות החרמון - הזמנת ריהוט</title>
+<meta name="theme-color" content="#5C6B3A">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%235C6B3A'/%3E%3Cpath d='M9 22c0-8 6-13 14-13-1 8-6 13-14 13z' fill='%23C9A45C'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --olive:#5C6B3A; --olive-dark:#3F4A27; --olive-soft:#E9ECDD;
+  --cream:#F7F3EA; --card:#FFFDF8; --wheat:#C9A45C; --wheat-soft:#F4EBD6;
+  --terra:#C0663F; --terra-soft:#F8E4DA; --danger:#B23A2E;
+  --text:#2F3A26; --muted:#6E6A5E; --border:#E6DDC8;
+  --radius:14px; --shadow:0 2px 10px rgba(63,74,39,.08);
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{font-family:'Assistant',Arial,sans-serif;background:var(--cream);color:var(--text);font-size:16px;line-height:1.45;-webkit-text-size-adjust:100%}
+button,input,select,textarea{font-family:inherit;font-size:inherit}
+img{max-width:100%}
+.hidden{display:none!important}
+
+/* ---------- כותרת ---------- */
+.topbar{background:var(--card);border-bottom:1px solid var(--border);padding:10px 16px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:30}
+.topbar img{height:30px;width:auto}
+.topbar .title{font-weight:800;color:var(--olive-dark);font-size:17px;line-height:1.2}
+.topbar .sub{font-size:13px;color:var(--muted)}
+.topbar .spacer{flex:1}
+.topbar .ttl{min-width:0}
+.stock-pill{display:inline-block;font-size:12px;padding:1px 8px;border-radius:999px;background:var(--wheat-soft);color:#7A5B1E;white-space:nowrap;margin-inline-start:4px}
+.restart{flex:0 0 auto;border:1.5px solid var(--border);background:var(--card);color:var(--olive-dark);border-radius:999px;padding:8px 12px;min-height:40px;font-weight:700;cursor:pointer;white-space:nowrap}
+@media(max-width:420px){.topbar img{height:22px;width:auto}.topbar .title{font-size:15px}.topbar{gap:8px;padding:8px 12px}}
+.stock-pill.live{background:var(--olive-soft);color:var(--olive-dark)}
+.stock-pill.err{background:var(--terra-soft);color:var(--danger)}
+
+.wrap{max-width:1100px;margin:0 auto;padding:16px}
+.screen{display:none}
+.screen.active{display:block;animation:fadeUp .45s ease both}
+@keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.screen.active,.card{animation:none!important}}
+
+h1{font-size:26px;margin:8px 0 4px;color:var(--olive-dark);font-weight:800}
+h2{font-size:20px;margin:0 0 10px;color:var(--olive-dark)}
+.lead{color:var(--muted);margin:0 0 18px}
+.panel{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:18px;box-shadow:var(--shadow);margin-bottom:16px}
+
+/* ---------- טפסים ---------- */
+.form{display:grid;gap:14px;grid-template-columns:1fr}
+@media(min-width:700px){.form{grid-template-columns:1fr 1fr}.form .full{grid-column:1/-1}}
+label.f{display:block;font-weight:700;font-size:14px;margin-bottom:5px}
+label.f small{font-weight:400;color:var(--muted);font-size:13px}
+.inp{width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:10px;background:#fff;color:var(--text);font-size:16px}
+.inp:focus{outline:none;border-color:var(--olive);box-shadow:0 0 0 3px var(--olive-soft)}
+.inp.invalid{border-color:var(--danger);background:#FFF6F4}
+.err-msg{color:var(--danger);font-size:13px;margin-top:4px;min-height:0}
+.days{display:flex;gap:8px;flex-wrap:wrap}
+.day{flex:1;min-width:92px;border:1.5px solid var(--border);border-radius:10px;padding:10px 6px;text-align:center;background:#fff;cursor:pointer;font-weight:700}
+.day small{display:block;font-weight:400;color:var(--muted)}
+.day.sel{border-color:var(--olive);background:var(--olive-soft)}
+.days.invalid .day{border-color:var(--danger)}
+
+/* ---------- כפתורים ---------- */
+.btn{border:0;border-radius:12px;padding:13px 22px;font-weight:800;cursor:pointer;font-size:16px;transition:transform .1s,background .2s}
+.btn:active{transform:scale(.98)}
+.btn-primary{background:var(--olive);color:#fff}
+.btn-primary:hover{background:var(--olive-dark)}
+.btn-primary:disabled{background:#A9AE98;cursor:not-allowed}
+.btn-ghost{background:transparent;color:var(--olive-dark);border:1.5px solid var(--border)}
+.btn-wheat{background:var(--wheat);color:#fff}
+.actions{display:flex;gap:10px;justify-content:space-between;align-items:center;margin-top:18px;flex-wrap:wrap}
+.linkbtn{background:none;border:0;color:var(--olive);font-weight:700;cursor:pointer;text-decoration:underline;padding:0}
+
+/* ---------- הנחיות ---------- */
+.big-budget{font-size:40px;font-weight:800;color:var(--olive-dark);line-height:1}
+.steps{list-style:none;padding:0;margin:0;display:grid;gap:10px}
+.steps li{display:flex;gap:12px;align-items:flex-start}
+.steps .n{flex:0 0 30px;height:30px;border-radius:50%;background:var(--wheat);color:#fff;font-weight:800;display:flex;align-items:center;justify-content:center}
+.note{background:var(--wheat-soft);border-radius:10px;padding:12px 14px;font-size:15px}
+.note.terra{background:var(--terra-soft)}
+
+/* ---------- טאבים ---------- */
+/* פס הקטגוריות: דבוק למעלה. במובייל נגלל בהחלקה עם רמז בקצוות, ממסך 700px ומעלה כל הקטגוריות גלויות (שבירה לכמה שורות) */
+.tabbar{position:sticky;top:var(--hdr,58px);z-index:20;background:var(--cream);margin:0 -16px 10px;padding:8px 0 10px;border-bottom:1px solid transparent}
+.tabbar.stuck{border-bottom-color:var(--border);box-shadow:0 6px 10px -8px rgba(63,74,39,.25)}
+.tabs{display:flex;gap:8px;overflow-x:auto;padding:2px 16px;scrollbar-width:none;-webkit-overflow-scrolling:touch;scroll-snap-type:x proximity}
+.tabs::-webkit-scrollbar{display:none}
+.tab{flex:0 0 auto;scroll-snap-align:center;border:1.5px solid var(--border);background:var(--card);border-radius:999px;padding:10px 16px;min-height:44px;font-weight:700;cursor:pointer;white-space:nowrap;color:var(--text)}
+.edge{position:absolute;top:0;bottom:0;width:56px;display:flex;align-items:center;opacity:0;pointer-events:none;transition:opacity .2s}
+.edge.show{opacity:1;pointer-events:auto}
+.edge-start{right:0;justify-content:flex-start;background:linear-gradient(to left,var(--cream) 35%,rgba(247,243,234,0))}
+.edge-end{left:0;justify-content:flex-start;background:linear-gradient(to right,var(--cream) 35%,rgba(247,243,234,0))}
+.edge button{width:36px;height:36px;margin:0 4px;border-radius:50%;border:1.5px solid var(--border);background:var(--card);color:var(--olive-dark);font-size:20px;font-weight:800;line-height:1;cursor:pointer;box-shadow:var(--shadow)}
+@media(min-width:700px){
+  .tabs{flex-wrap:wrap;overflow:visible;justify-content:center}
+  .edge{display:none}
+}
+.tab.active{background:var(--olive);border-color:var(--olive);color:#fff}
+.tab .cnt{display:inline-block;min-width:20px;padding:0 6px;margin-inline-start:6px;border-radius:999px;background:var(--wheat);color:#fff;font-size:12px;line-height:20px;text-align:center}
+
+/* ---------- כרטיסי מוצר ---------- */
+.grid{display:grid;gap:12px;grid-template-columns:repeat(2,minmax(0,1fr))}
+@media(min-width:700px){.grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(min-width:1000px){.grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;display:flex;flex-direction:column;box-shadow:var(--shadow);animation:fadeUp .4s ease both;position:relative}
+.card.out{opacity:.6}
+.card .ph{aspect-ratio:1/1;width:100%;overflow:hidden;background:#fff;position:relative;cursor:zoom-in}
+.card .ph img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;display:block}
+.card .ph.scene img{object-fit:cover}
+.card .body{padding:10px 12px 12px;display:flex;flex-direction:column;gap:4px;flex:1}
+.card .nm{font-weight:800;font-size:15px;line-height:1.25}
+.card .meta{font-size:13px;color:var(--muted)}
+.card .desc{font-size:13px;color:var(--muted);display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.card .price{font-weight:800;font-size:17px;color:var(--olive-dark);margin-top:auto}
+.gift{position:absolute;top:8px;inset-inline-start:8px;background:var(--terra);color:#fff;font-size:12px;font-weight:700;border-radius:999px;padding:3px 10px;max-width:calc(100% - 16px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gift-line{font-size:13px;color:var(--terra);font-weight:700}
+.avail{font-size:12px;font-weight:700;border-radius:6px;padding:2px 8px;align-self:flex-start}
+.avail.ok{background:var(--olive-soft);color:var(--olive-dark)}
+.avail.low{background:var(--terra-soft);color:var(--terra)}
+.avail.out{background:#EEE;color:#777}
+.avail.order{background:var(--wheat-soft);color:#7A5B1E}
+.avail.checking{background:#F0EEE8;color:var(--muted);animation:pulse 1.2s infinite}
+@keyframes pulse{50%{opacity:.5}}
+
+.stepper{display:flex;align-items:center;justify-content:space-between;border:1.5px solid var(--border);border-radius:10px;overflow:hidden;margin-top:6px;background:#fff}
+.stepper button{width:44px;height:44px;border:0;background:var(--olive-soft);color:var(--olive-dark);font-size:22px;font-weight:800;cursor:pointer}
+.stepper button:disabled{background:#F0EEE8;color:#BBB;cursor:not-allowed}
+.stepper .q{flex:1;text-align:center;font-weight:800}
+.stepper.wait .q{font-size:12px;font-weight:600;color:var(--muted)}
+.maxhint{font-size:12px;color:var(--terra);font-weight:700;margin-top:4px}
+.add-btn{margin-top:6px;width:100%;padding:10px;min-height:44px;border-radius:10px;border:0;background:var(--olive);color:#fff;font-weight:800;cursor:pointer}
+.add-btn:disabled{background:#C9CBBE;cursor:not-allowed}
+
+.builder{display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+.builder .imgs{display:flex;gap:8px}
+.builder .imgs img{width:84px;height:84px;object-fit:contain;background:#fff;border-radius:10px;border:1px solid var(--border)}
+.builder .txt{flex:1;min-width:220px}
+.tline{display:flex;gap:10px;align-items:center;border-top:1px solid var(--border);padding:10px 0}
+.tline:first-child{border-top:0}
+.tline .info{flex:1;font-size:14px}
+
+/* ---------- פס תקציב תחתון ---------- */
+.budgetbar{position:fixed;bottom:0;left:0;right:0;background:var(--card);border-top:1px solid var(--border);box-shadow:0 -4px 16px rgba(63,74,39,.10);z-index:40;padding:10px 16px calc(10px + env(safe-area-inset-bottom))}
+.budgetbar .in{max-width:1100px;margin:0 auto;display:flex;gap:12px;align-items:center}
+.budgetbar .nums{flex:1;min-width:0}
+.budgetbar .row{display:flex;justify-content:space-between;font-size:14px;gap:8px}
+.budgetbar .row b{font-size:17px}
+.bar{height:9px;background:#EDE7D8;border-radius:999px;overflow:hidden;margin-top:6px}
+.bar i{display:block;height:100%;width:0;background:var(--olive);border-radius:999px;transition:width .4s,background .4s}
+.bar.mid i{background:var(--wheat)}
+.bar.over i{background:var(--danger)}
+.over-txt{color:var(--danger)}
+body.has-bar{padding-bottom:96px}
+
+/* ---------- סיכום ---------- */
+.lines{display:grid;gap:10px}
+.line{display:flex;gap:12px;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:10px;align-items:center}
+.line.short{border-color:var(--danger);background:#FFF6F4}
+.line img{width:64px;height:64px;object-fit:contain;background:#fff;border-radius:8px;flex:0 0 64px}
+.line .info{flex:1;min-width:0}
+.line .t{font-weight:800}
+.line .d{font-size:13px;color:var(--muted)}
+.line .sum{font-weight:800;white-space:nowrap}
+.line .stepper{width:140px;margin-top:6px}
+.line .stepper button{height:40px;width:42px;font-size:20px}
+.short-msg{color:var(--danger);font-size:13px;font-weight:700}
+.totals{display:grid;gap:6px;font-size:16px}
+.totals div{display:flex;justify-content:space-between}
+.totals .grand{font-size:20px;font-weight:800;border-top:1px solid var(--border);padding-top:8px}
+.check{display:flex;gap:10px;align-items:flex-start;background:var(--terra-soft);border-radius:10px;padding:12px;margin-top:12px;cursor:pointer}
+.check input{width:22px;height:22px;flex:0 0 22px;accent-color:var(--terra)}
+.cust{font-size:14px;color:var(--muted)}
+.empty{text-align:center;color:var(--muted);padding:30px 10px}
+
+/* ---------- מודאל ---------- */
+.modal-bg{position:fixed;inset:0;background:rgba(30,35,20,.55);z-index:60;display:flex;align-items:flex-end;justify-content:center}
+@media(min-width:700px){.modal-bg{align-items:center}}
+.modal{background:var(--cream);width:100%;max-width:640px;max-height:92vh;overflow:auto;border-radius:18px 18px 0 0;padding:18px 16px 20px;animation:slideUp .3s ease both}
+@media(min-width:700px){.modal{border-radius:18px}}
+@keyframes slideUp{from{transform:translateY(40px);opacity:0}to{transform:none;opacity:1}}
+.modal-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.xbtn{background:none;border:0;font-size:30px;line-height:1;cursor:pointer;color:var(--muted);width:44px;height:44px}
+.dialog{max-width:420px;text-align:center}
+.dialog .actions{justify-content:center}
+.step-t{font-weight:800;margin:14px 0 8px;color:var(--olive-dark)}
+.opts{display:grid;gap:8px;grid-template-columns:repeat(3,minmax(0,1fr))}
+.opt{border:2px solid var(--border);border-radius:12px;background:#fff;padding:6px;cursor:pointer;text-align:center;font-size:13px;position:relative}
+.opt img{width:100%;aspect-ratio:1/1;object-fit:contain}
+.opt.sel{border-color:var(--olive);box-shadow:0 0 0 3px var(--olive-soft)}
+.opt:disabled{opacity:.45;cursor:not-allowed}
+.opt b{display:block;font-size:14px}
+.chips{display:flex;gap:8px;flex-wrap:wrap}
+.chip{border:2px solid var(--border);border-radius:12px;background:#fff;padding:8px 12px;cursor:pointer;text-align:center;min-width:84px}
+.chip b{display:block;font-size:16px}
+.chip small{color:var(--muted)}
+.chip.sel{border-color:var(--olive);background:var(--olive-soft)}
+.chip:disabled{opacity:.45;cursor:not-allowed}
+.tm-sum{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px;margin-top:14px}
+
+.zoom{position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:70;display:flex;align-items:center;justify-content:center;padding:16px;cursor:zoom-out}
+.zoom img{max-height:90vh;background:#fff;border-radius:10px}
+
+/* ---------- הודעות ---------- */
+.toast{position:fixed;left:0;right:0;margin:0 auto;width:fit-content;text-align:center;bottom:110px;background:var(--olive-dark);color:#fff;padding:12px 18px;border-radius:12px;z-index:80;max-width:min(92vw,520px);box-shadow:var(--shadow);font-weight:600;animation:fadeUp .3s ease both}
+.toast.warn{background:var(--terra)}
+.banner{border-radius:12px;padding:12px 14px;margin-bottom:12px;font-size:15px;display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.banner.err{background:var(--terra-soft);color:var(--danger)}
+.banner.info{background:var(--wheat-soft)}
+footer{text-align:center;color:var(--muted);font-size:13px;padding:20px 16px 30px}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <img src="pic/logo-contrast.png" alt="CONTRAST" width="120" height="30">
+  <div class="ttl">
+    <div class="title">נבחרת צימרי מבואות החרמון</div>
+    <div class="sub">הזמנת ריהוט ואבזור <span id="stockPill" class="stock-pill">בודק מלאי...</span></div>
+  </div>
+  <div class="spacer"></div>
+  <button class="restart" id="restartBtn" type="button">↺ לקוח חדש</button>
+</header>
+
+<main class="wrap">
+
+  <!-- מסך 1: רישום -->
+  <section class="screen" id="s1">
+    <h1>ברוכים הבאים</h1>
+    <p class="lead">כמה פרטים על הצימר, ואז נעבור לבחירת הריהוט.</p>
+    <div class="panel">
+      <div class="form" id="regForm">
+        <div><label class="f" for="f-zimmer">שם הצימר</label><input class="inp" id="f-zimmer" autocomplete="organization"><div class="err-msg"></div></div>
+        <div><label class="f" for="f-town">ישוב</label><input class="inp" id="f-town" autocomplete="address-level2"><div class="err-msg"></div></div>
+        <div><label class="f" for="f-contact">איש/אשת קשר</label><input class="inp" id="f-contact" autocomplete="name"><div class="err-msg"></div></div>
+        <div><label class="f" for="f-phone">טלפון נייד</label><input class="inp" id="f-phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="05X-XXXXXXX" dir="ltr"><div class="err-msg"></div></div>
+        <div class="full"><label class="f" for="f-email">מייל <small>(לשם יישלח אישור ההזמנה)</small></label><input class="inp" id="f-email" type="email" inputmode="email" autocomplete="email" dir="ltr"><div class="err-msg"></div></div>
+        <div class="full"><label class="f" for="f-address">כתובת לאספקה <small>(רחוב, מספר, ישוב)</small></label><input class="inp" id="f-address" autocomplete="street-address"><div class="err-msg"></div></div>
+        <div class="full"><label class="f">יום ההגעה לאולם התצוגה</label>
+          <div class="days" id="f-day">
+            <button type="button" class="day" data-v="1.12.26">שלישי<small>1.12.26</small></button>
+            <button type="button" class="day" data-v="2.12.26">רביעי<small>2.12.26</small></button>
+            <button type="button" class="day" data-v="3.12.26">חמישי<small>3.12.26</small></button>
+          </div><div class="err-msg"></div>
+        </div>
+      </div>
+      <div class="actions"><span></span><button class="btn btn-primary" id="toGuide">המשך ←</button></div>
+    </div>
+  </section>
+
+  <!-- מסך 2: הנחיות -->
+  <section class="screen" id="s2">
+    <h1>לפני שבוחרים</h1>
+    <div class="panel">
+      <div class="lead" style="margin:0">תקציב השדרוג לצימר</div>
+      <div class="big-budget" id="g-budget">₪9,500</div>
+      <div class="lead">כולל מע"מ. הובלה והרכבה כלולות בתוכנית, ללא תשלום נוסף.</div>
+      <ul class="steps">
+        <li><span class="n">1</span><div>מסתובבים באולם, רואים ומרגישים את הפריטים.</div></li>
+        <li><span class="n">2</span><div>בוחרים באתר לפי הקטגוריות. ליד כל פריט מופיע כמה נשארו במלאי.</div></li>
+        <li><span class="n">3</span><div>שולחן בונים משני חלקים: רגל ברזל ופלטה (גוון וקוטר).</div></li>
+        <li><span class="n">4</span><div>בסיכום בודקים, ושולחים. אחרי השליחה מקבלים קובץ Excel ו-PDF של ההזמנה, ואישור במייל.</div></li>
+      </ul>
+    </div>
+    <div class="note" style="margin-bottom:12px"><b>חשוב לדעת:</b> הפריטים נשמרים לך רק ברגע שליחת ההזמנה. פריט שנמצא בעגלה עדיין לא שמור, וייתכן שמישהו אחר יזמין אותו לפניך. אם זה יקרה, נראה לך בדיוק מה השתנה ותוכלו לבחור מחדש.</div>
+    <div class="note terra"><b>מעל התקציב?</b> אפשר להזמין, וההפרש משולם על ידי בעל/ת הצימר. אפשר לשלוח הזמנה אחת לכל צימר, ושינויים אחרי השליחה רק דרך הצוות.</div>
+    <div class="actions"><button class="btn btn-ghost" data-go="1">→ חזרה</button><button class="btn btn-primary" data-go="3">לקטלוג ←</button></div>
+  </section>
+
+  <!-- מסך 3: קטלוג -->
+  <section class="screen" id="s3">
+    <div id="stockBanner"></div>
+    <div class="tabbar" id="tabbar">
+      <div class="edge edge-start" id="edgeStart"><button type="button" data-scroll="1" aria-label="קטגוריות קודמות">›</button></div>
+      <nav class="tabs" id="tabs" aria-label="קטגוריות"></nav>
+      <div class="edge edge-end" id="edgeEnd"><button type="button" data-scroll="-1" aria-label="עוד קטגוריות">‹</button></div>
+    </div>
+    <div id="catalog"></div>
+  </section>
+
+  <!-- מסך 4: סיכום -->
+  <section class="screen" id="s4">
+    <h1>סיכום ההזמנה</h1>
+    <div id="sumBanner"></div>
+    <div class="panel">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+        <h2 style="margin:0">פרטי הצימר</h2><button class="linkbtn" data-go="1">עריכה</button>
+      </div>
+      <div class="cust" id="custBox"></div>
+    </div>
+    <div class="lines" id="lines"></div>
+    <div class="panel" style="margin-top:16px">
+      <div class="totals" id="totals"></div>
+      <label class="check hidden" id="overCheck"><input type="checkbox" id="overOk"><span>אני מאשר/ת שהסכום שמעל התקציב (<b id="overAmt"></b>) ישולם על ידי.</span></label>
+    </div>
+    <div class="actions">
+      <button class="btn btn-ghost" data-go="3">→ חזרה לקטלוג</button>
+      <button class="btn btn-primary" id="sendBtn">שליחת ההזמנה</button>
+    </div>
+  </section>
+
+</main>
+
+<footer>CONTRAST · הג'וינט · מועצה אזורית מבואות החרמון</footer>
+
+<!-- פס תקציב -->
+<div class="budgetbar hidden" id="budgetbar">
+  <div class="in">
+    <div class="nums">
+      <div class="row"><span>נבחר: <b id="bb-total">₪0</b></span><span id="bb-left-lbl">יתרת תקציב: <b id="bb-left">₪9,500</b></span></div>
+      <div class="bar" id="bb-bar"><i></i></div>
+    </div>
+    <button class="btn btn-primary" id="toSummary">לסיכום <span id="bb-count"></span></button>
+  </div>
+</div>
+
+<div id="modalRoot"></div>
+<div id="dialogRoot"></div>
+
+<script>
+'use strict';
+// =====================================================================
+// הגדרות
+// =====================================================================
+const CONFIG = {
+  API: 'https://script.google.com/macros/s/AKfycbynZDBWrzSYNvW6bsdgW3KMWGpIV8maveVTKufv3JilsuD_LYD7d5OxK5h4vuzVMQnMIg/exec',
+  SNAPSHOT: 'data/catalog-snapshot.json',
+  STORE: 'mh-orders-v1',        // עגלה ופרטים בדפדפן (נוחות בלבד)
+  CACHE: 'mh-catalog-cache-v1', // העותק החי האחרון של הקטלוג
+  REFRESH_MS: 60000             // רענון מלאי ברקע
+};
+// ללקוח לא מציגים כמויות במלאי - רק "במלאי" / "אזל מהמלאי". הכמויות מוצגות רק במסכי הניהול.
+const MAX_MSG = 'זו הכמות המקסימלית הזמינה';
+const OUT_MSG = 'אזל מהמלאי';
+const DAYS = { '1.12.26': 'שלישי 1.12.26', '2.12.26': 'רביעי 2.12.26', '3.12.26': 'חמישי 3.12.26' };
+const TONES = [['שחור', 'black'], ['אגוז', 'walnut'], ['טבעי', 'natural']];
+
+// =====================================================================
+// מצב
+// =====================================================================
+const S = {
+  products: [], byId: {}, budget: 9500, open: true,
+  live: false,       // true רק אחרי שהמלאי העדכני הגיע מהשרת
+  liveErr: '', loading: false,
+  cart: [],          // [{lid, type:'item', id, qty}] או [{lid, type:'table', leg, top, qty}]
+  customer: {}, screen: 1, tab: null, shortages: {}
+};
+
+// =====================================================================
+// כלי עזר
+// =====================================================================
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const money = n => '₪' + Math.round(n).toLocaleString('he-IL');
+const store = {
+  get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+};
+function toast(msg, warn) {
+  document.querySelectorAll('.toast').forEach(t => t.remove());
+  const t = document.createElement('div');
+  t.className = 'toast' + (warn ? ' warn' : '');
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), warn ? 6000 : 2600);
+}
+function animateNum(el, to) {
+  const from = Number(el.dataset.v || 0);
+  el.dataset.v = to;
+  if (from === to || matchMedia('(prefers-reduced-motion: reduce)').matches) { el.textContent = money(to); return; }
+  const t0 = performance.now(), dur = 350;
+  const step = now => {
+    const k = Math.min(1, (now - t0) / dur);
+    el.textContent = money(from + (to - from) * (1 - Math.pow(1 - k, 3)));
+    if (k < 1) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
+const img = (file, alt, extra) => file ? `<img src="pic/${esc(file)}" alt="${esc(alt)}" loading="lazy" decoding="async" ${extra || ''} onerror="this.style.visibility='hidden'">` : '';
+
+// =====================================================================
+// קטלוג ומלאי
+// =====================================================================
+function setCatalog(data) {
+  S.products = (data.products || []).slice().sort((a, b) => a.order - b.order);
+  S.byId = {};
+  S.products.forEach(p => { S.byId[p.id] = p; });
+  if (data.budget) S.budget = Number(data.budget);
+  if (data.open !== undefined) S.open = !!data.open;
+  // פריטים שנעלמו מהקטלוג (הוסתרו) יוצאים מהעגלה
+  S.cart = S.cart.filter(l => l.type === 'item' ? S.byId[l.id] : (S.byId[l.leg] && S.byId[l.top]));
+}
+
+async function loadSnapshot() {
+  const cached = store.get(CONFIG.CACHE);
+  if (cached && cached.products) { setCatalog(cached); return; }
+  try {
+    const r = await fetch(CONFIG.SNAPSHOT, { cache: 'no-cache' });
+    setCatalog(await r.json());
+  } catch (e) { /* אם גם זה נכשל - נחכה לשרת */ }
+}
+
+async function loadLive(silent) {
+  if (S.loading) return;
+  S.loading = true;
+  if (!S.live) updateStockUI();
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), 20000);
+  try {
+    const r = await fetch(CONFIG.API + '?action=catalog&t=' + Date.now(), { signal: ctl.signal, cache: 'no-store' });
+    const data = await r.json();
+    if (!data.ok) throw new Error(data.error || 'שגיאת שרת');
+    setCatalog(data);
+    store.set(CONFIG.CACHE, data);
+    S.live = true; S.liveErr = '';
+    const changed = clampCart();
+    if (changed.length) toast('המלאי התעדכן: ' + changed.join(' · '), true);
+  } catch (e) {
+    S.liveErr = e.name === 'AbortError' ? 'השרת לא ענה בזמן' : 'אין חיבור לשרת';
+    if (!S.live) setTimeout(() => loadLive(true), 8000); // ניסיון חוזר אוטומטי
+  } finally {
+    clearTimeout(timer);
+    S.loading = false;
+    renderAll();
+  }
+}
+
+// כמה יחידות ממוצר תפוסות בעגלה (פריטים רגילים + רגליים ופלטות בשולחנות)
+function usedInCart(id, exceptLid) {
+  let n = 0;
+  S.cart.forEach(l => {
+    if (l.lid === exceptLid) return;
+    if (l.type === 'item' && l.id === id) n += l.qty;
+    if (l.type === 'table' && (l.leg === id || l.top === id)) n += l.qty;
+  });
+  return n;
+}
+// כמה עוד אפשר לקחת מהמוצר (Infinity = ללא הגבלה)
+function availFor(id, exceptLid) {
+  const p = S.byId[id];
+  if (!p) return 0;
+  if (p.stock === null) return Infinity;
+  return Math.max(0, p.stock - usedInCart(id, exceptLid));
+}
+function maxForLine(l) {
+  if (l.type === 'item') return availFor(l.id, l.lid);
+  return Math.min(availFor(l.leg, l.lid), availFor(l.top, l.lid));
+}
+// אחרי עדכון מלאי - מורידים כמויות שכבר אין
+function clampCart() {
+  const msgs = [];
+  S.cart.forEach(l => {
+    const max = maxForLine(l);
+    if (l.qty > max) {
+      msgs.push(`${lineTitle(l)}: ${max === 0 ? OUT_MSG : 'הכמות עודכנה לפי המלאי'}`);
+      l.qty = max;
+    }
+  });
+  S.cart = S.cart.filter(l => l.qty > 0);
+  saveState();
+  return msgs;
+}
+
+// =====================================================================
+// עגלה
+// =====================================================================
+let lidSeq = Date.now();
+function itemLine(id) { return S.cart.find(l => l.type === 'item' && l.id === id); }
+function setItemQty(id, qty) {
+  let l = itemLine(id);
+  if (!l) { if (qty <= 0) return; l = { lid: ++lidSeq, type: 'item', id, qty: 0 }; S.cart.push(l); }
+  const max = availFor(id, l.lid), prev = l.qty;
+  if (qty > max) { qty = max; toast(max === 0 ? OUT_MSG : MAX_MSG, true); }
+  else if (qty > prev && qty === max) toast(MAX_MSG);
+  l.qty = Math.max(0, qty);
+  S.cart = S.cart.filter(x => x.qty > 0);
+  delete S.shortages[l.lid];
+  saveState(); renderAll();
+}
+function setLineQty(lid, qty) {
+  const l = S.cart.find(x => x.lid === lid);
+  if (!l) return;
+  const max = maxForLine(l), prev = l.qty;
+  if (qty > max) { qty = max; toast(max === 0 ? OUT_MSG : MAX_MSG, true); }
+  else if (qty > prev && qty === max) toast(MAX_MSG);
+  l.qty = Math.max(0, qty);
+  S.cart = S.cart.filter(x => x.qty > 0);
+  delete S.shortages[lid];
+  saveState(); renderAll();
+}
+function linePrice(l) {
+  if (l.type === 'item') return S.byId[l.id].price;
+  return S.byId[l.leg].price + S.byId[l.top].price;
+}
+function lineTitle(l) {
+  if (l.type === 'item') { const p = S.byId[l.id]; return `${p.name} (${p.code})`; }
+  const t = S.byId[l.top];
+  return `שולחן ${S.byId[l.leg].code} + פלטה ${t.tone} ${t.diameter}`;
+}
+function cartTotal() { return S.cart.reduce((s, l) => s + linePrice(l) * l.qty, 0); }
+function cartCount() { return S.cart.reduce((s, l) => s + l.qty, 0); }
+function catCount(cat) {
+  return S.cart.reduce((s, l) => s + ((l.type === 'table' ? 'tables' : S.byId[l.id].cat) === cat ? l.qty : 0), 0);
+}
+
+function saveState() {
+  const empty = !S.cart.length && !Object.values(S.customer).some(Boolean);
+  if (empty) { try { localStorage.removeItem(CONFIG.STORE); } catch (e) {} return; }
+  store.set(CONFIG.STORE, { customer: S.customer, cart: S.cart, screen: S.screen, tab: S.tab });
+}
+
+// =====================================================================
+// מסכים
+// =====================================================================
+function go(n) {
+  if (n >= 2 && !validateReg(n === 2)) { n = 1; }
+  S.screen = n;
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  $('#s' + n).classList.add('active');
+  const showBar = n === 3;
+  $('#budgetbar').classList.toggle('hidden', !showBar);
+  document.body.classList.toggle('has-bar', showBar);
+  saveState();
+  renderAll();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+  if (n >= 3 && S.live) loadLive(true); // רענון מלאי בכניסה לקטלוג ולסיכום
+}
+
+// ---------- רישום ----------
+const FIELDS = [
+  ['zimmer', 'f-zimmer', v => v.length >= 2 || 'נא למלא את שם הצימר'],
+  ['town', 'f-town', v => v.length >= 2 || 'נא למלא ישוב'],
+  ['contact', 'f-contact', v => v.length >= 2 || 'נא למלא שם איש/אשת קשר'],
+  ['phone', 'f-phone', v => /^05\d{8}$/.test(v.replace(/[\s-]/g, '')) || 'מספר נייד בן 10 ספרות שמתחיל ב-05'],
+  ['email', 'f-email', v => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v) || 'כתובת מייל לא תקינה'],
+  ['address', 'f-address', v => v.length >= 5 || 'נא למלא כתובת מלאה לאספקה']
+];
+function readReg() {
+  FIELDS.forEach(([k, id]) => { S.customer[k] = $('#' + id).value.trim(); });
+  S.customer.phone = (S.customer.phone || '').replace(/[\s-]/g, '');
+}
+function fillReg() {
+  FIELDS.forEach(([k, id]) => { if (S.customer[k]) $('#' + id).value = S.customer[k]; });
+  document.querySelectorAll('.day').forEach(d => d.classList.toggle('sel', d.dataset.v === S.customer.day));
+}
+function validateReg(show) {
+  if (S.screen === 1) readReg();
+  let ok = true, first = null;
+  FIELDS.forEach(([k, id, test]) => {
+    const el = $('#' + id), res = test(S.customer[k] || '');
+    const bad = res !== true;
+    if (show) { el.classList.toggle('invalid', bad); el.nextElementSibling.textContent = bad ? res : ''; }
+    if (bad) { ok = false; first = first || el; }
+  });
+  const dayBad = !DAYS[S.customer.day];
+  if (show) { $('#f-day').classList.toggle('invalid', dayBad); $('#f-day').nextElementSibling.textContent = dayBad ? 'נא לבחור יום' : ''; }
+  if (dayBad) ok = false;
+  if (!ok && show && first) first.focus();
+  return ok;
+}
+
+// ---------- מלאי: תצוגה ----------
+function updateStockUI() {
+  const pill = $('#stockPill');
+  if (S.live) { pill.className = 'stock-pill live'; pill.textContent = 'מלאי מעודכן'; }
+  else if (S.liveErr) { pill.className = 'stock-pill err'; pill.textContent = 'אין חיבור למלאי'; }
+  else { pill.className = 'stock-pill'; pill.textContent = 'בודק מלאי...'; }
+  const b = $('#stockBanner');
+  if (!S.live && S.liveErr) {
+    b.innerHTML = `<div class="banner err"><span>${esc(S.liveErr)}. אפשר לעיין בקטלוג, אבל הוספה לעגלה תיפתח רק אחרי שהמלאי יתעדכן.</span><button class="btn btn-ghost" onclick="loadLive()">נסו שוב</button></div>`;
+  } else if (!S.live) {
+    b.innerHTML = `<div class="banner info"><span>בודקים את המלאי העדכני... רגע אחד.</span></div>`;
+  } else if (!S.open) {
+    b.innerHTML = `<div class="banner err"><span>גרסת בדיקה - שליחת הזמנות סגורה כרגע. אפשר לעיין בקטלוג ולבנות עגלה.</span></div>`;
+  } else b.innerHTML = '';
+}
+function availBadge(p) {
+  if (!S.live) return '<span class="avail checking">בודק מלאי...</span>';
+  if (p.stock === null) return '<span class="avail order">בהזמנה מהספק</span>';
+  if (p.stock <= 0) return `<span class="avail out">${OUT_MSG}</span>`;
+  return '<span class="avail ok">במלאי</span>';
+}
+
+// ---------- קטלוג ----------
+function categories() {
+  const seen = {}, list = [];
+  S.products.forEach(p => { if (!seen[p.cat]) { seen[p.cat] = 1; list.push({ cat: p.cat, label: p.catLabel }); } });
+  return list;
+}
+function renderTabs() {
+  const cats = categories();
+  if (!cats.length) { $('#tabs').innerHTML = ''; return; }
+  if (!cats.find(c => c.cat === S.tab)) S.tab = cats[0].cat;
+  $('#tabs').innerHTML = cats.map(c => {
+    const n = catCount(c.cat);
+    return `<button class="tab ${c.cat === S.tab ? 'active' : ''}" data-tab="${esc(c.cat)}">${esc(c.label)}${n ? `<span class="cnt">${n}</span>` : ''}</button>`;
+  }).join('');
+  if (S.tab !== lastCentered) { lastCentered = S.tab; centerActiveTab(lastCentered === null); }
+  updateEdges();
+}
+let lastCentered = null;
+// גלילה אופקית של פס הקטגוריות כך שהקטגוריה הפעילה באמצע (עובד גם בימין-לשמאל)
+function centerActiveTab(instant) {
+  const tabs = $('#tabs'), a = tabs.querySelector('.tab.active');
+  if (!a || tabs.scrollWidth <= tabs.clientWidth) return;
+  const r = a.getBoundingClientRect(), c = tabs.getBoundingClientRect();
+  tabs.scrollBy({ left: (r.left + r.width / 2) - (c.left + c.width / 2), behavior: instant ? 'auto' : 'smooth' });
+}
+// רמז בקצוות: מופיע רק כשיש עוד קטגוריות לגלול אליהן בכיוון הזה
+function updateEdges() {
+  const tabs = $('#tabs'), max = tabs.scrollWidth - tabs.clientWidth, pos = Math.abs(tabs.scrollLeft);
+  $('#edgeStart').classList.toggle('show', max > 4 && pos > 4);
+  $('#edgeEnd').classList.toggle('show', max > 4 && pos < max - 4);
+}
+function updateSticky() {
+  const hdr = $('.topbar').offsetHeight;
+  document.documentElement.style.setProperty('--hdr', hdr + 'px');
+  const tb = $('#tabbar');
+  tb.classList.toggle('stuck', tb.getBoundingClientRect().top <= hdr + 1 && window.scrollY > 0);
+}
+
+// ---------- לקוח חדש: ניקוי המכשיר (גם אחרי שליחה מוצלחת) ----------
+function resetAll() {
+  S.customer = {}; S.cart = []; S.shortages = {}; S.tab = null; lastCentered = null; TM = null;
+  try { localStorage.removeItem(CONFIG.STORE); } catch (e) {}
+  FIELDS.forEach(([, id]) => { const el = $('#' + id); el.value = ''; el.classList.remove('invalid'); el.nextElementSibling.textContent = ''; });
+  $('#f-day').classList.remove('invalid'); $('#f-day').nextElementSibling.textContent = '';
+  $('#overOk').checked = false;
+  $('#modalRoot').innerHTML = ''; $('#dialogRoot').innerHTML = '';
+  fillReg();
+  go(1);
+}
+function askReset() {
+  if (!S.cart.length && !S.customer.zimmer) { resetAll(); return; }
+  $('#dialogRoot').innerHTML = `<div class="modal-bg" data-dclose="1"><div class="modal dialog" role="alertdialog" aria-modal="true">
+    <h2>להתחיל מחדש?</h2><p class="lead">העגלה ופרטי הצימר יימחקו מהמכשיר הזה. הזמנה שכבר נשלחה לא תושפע.</p>
+    <div class="actions"><button class="btn btn-ghost" data-dclose="1">ביטול</button><button class="btn btn-primary" data-reset="1">כן, לקוח חדש</button></div>
+  </div></div>`;
+}
+function renderCatalog() {
+  const el = $('#catalog');
+  if (!S.products.length) { el.innerHTML = '<div class="empty">טוען את הקטלוג...</div>'; return; }
+  if (S.tab === 'tables') { el.innerHTML = renderTablesTab(); return; }
+  const items = S.products.filter(p => p.cat === S.tab);
+  el.innerHTML = '<div class="grid">' + items.map((p, i) => cardHTML(p, i)).join('') + '</div>';
+}
+function cardHTML(p, i) {
+  const l = itemLine(p.id), q = l ? l.qty : 0;
+  const canAdd = S.live && availFor(p.id, l && l.lid) > q;
+  const out = S.live && p.stock !== null && p.stock <= 0;
+  let ctrl;
+  if (!S.live) ctrl = `<div class="stepper wait"><button disabled>−</button><span class="q">בודק מלאי...</span><button disabled>+</button></div>`;
+  else if (q === 0) ctrl = `<button class="add-btn" data-add="${esc(p.id)}" ${canAdd ? '' : 'disabled'}>${out ? OUT_MSG : 'הוספה'}</button>`;
+  else ctrl = `<div class="stepper"><button data-dec="${esc(p.id)}" aria-label="פחות">−</button><span class="q">${q}</span><button data-inc="${esc(p.id)}" aria-label="עוד" ${canAdd ? '' : 'disabled'}>+</button></div>${canAdd ? '' : `<div class="maxhint">${MAX_MSG}</div>`}`;
+  const meta = [p.code, p.color].filter(Boolean).map(esc).join(' · ');
+  return `<article class="card ${out ? 'out' : ''}" style="animation-delay:${Math.min(i, 12) * 35}ms">
+    ${p.gift ? `<span class="gift">🎁 מתנה</span>` : ''}
+    <div class="ph ${p.cat === 'outdoor' ? 'scene' : ''}" data-zoom="${esc(p.img)}">${img(p.img, p.name)}</div>
+    <div class="body">
+      <div class="nm">${esc(p.name)}</div>
+      <div class="meta">${meta}</div>
+      ${p.desc && p.desc !== p.name ? `<div class="desc">${esc(p.desc)}</div>` : ''}
+      ${p.gift ? `<div class="gift-line">במתנה: ${esc(p.gift)}</div>` : ''}
+      ${availBadge(p)}
+      <div class="price">${money(p.price)}</div>
+      ${ctrl}
+    </div></article>`;
+}
+function renderTablesTab() {
+  const legs = S.products.filter(p => p.kind === 'leg');
+  const tables = S.cart.filter(l => l.type === 'table');
+  const minPrice = Math.min(...legs.map(p => p.price)) + Math.min(...S.products.filter(p => p.kind === 'top').map(p => p.price));
+  let h = `<div class="panel builder">
+    <div class="imgs">${img(legs[0] && legs[0].img, 'רגל')}${img('TOP-walnut.webp', 'פלטה')}</div>
+    <div class="txt"><h2>בנה שולחן</h2><div class="lead" style="margin:0 0 10px">בוחרים רגל ברזל, גוון וקוטר לפלטה. החל מ-${money(minPrice)}.</div>
+    <button class="btn btn-primary" data-build="1" ${S.live ? '' : 'disabled'}>${S.live ? 'בנה שולחן' : 'בודק מלאי...'}</button></div></div>`;
+  if (tables.length) {
+    h += `<div class="panel"><h2>השולחנות שלך</h2>` + tables.map(l => {
+      const lg = S.byId[l.leg], tp = S.byId[l.top];
+      return `<div class="tline">${img(tp.img, '', 'style="width:56px;height:56px;object-fit:contain"')}
+        <div class="info"><b>${esc(lineTitle(l))}</b><br>${l.qty} × ${money(lg.price + tp.price)}</div>
+        <button class="linkbtn" data-editt="${l.lid}">עריכה</button></div>`;
+    }).join('') + '</div>';
+  }
+  return h;
+}
+
+// ---------- מודאל בניית שולחן ----------
+let TM = null;
+function openTable(lid) {
+  if (!S.live) return;
+  const l = lid ? S.cart.find(x => x.lid === lid) : null;
+  if (l) { const t = S.byId[l.top]; TM = { lid, leg: l.leg, tone: t.tone, dia: t.diameter, qty: l.qty }; }
+  else TM = { lid: null, leg: null, tone: null, dia: null, qty: 1 };
+  renderTable();
+}
+function topFor(tone, dia) { return S.products.find(p => p.kind === 'top' && p.tone === tone && Number(p.diameter) === Number(dia)); }
+function renderTable() {
+  if (!TM) { $('#modalRoot').innerHTML = ''; return; }
+  const legs = S.products.filter(p => p.kind === 'leg');
+  const dias = [...new Set(S.products.filter(p => p.kind === 'top').map(p => Number(p.diameter)))].sort((a, b) => a - b);
+  const top = TM.tone && TM.dia ? topFor(TM.tone, TM.dia) : null;
+  const legAv = TM.leg ? availFor(TM.leg, TM.lid) : 0;
+  const topAv = top ? availFor(top.id, TM.lid) : 0;
+  const max = TM.leg && top ? Math.min(legAv, topAv) : 0;
+  if (TM.qty > max) TM.qty = Math.max(1, max);
+  const legP = TM.leg ? S.byId[TM.leg] : null;
+  const price = (legP ? legP.price : 0) + (top ? top.price : 0);
+  const avTxt = av => av <= 0 ? OUT_MSG : '';
+
+  $('#modalRoot').innerHTML = `<div class="modal-bg" data-close="1"><div class="modal" role="dialog" aria-modal="true" aria-label="בנה שולחן">
+    <div class="modal-head"><h2 style="margin:0">${TM.lid ? 'עריכת שולחן' : 'בנה שולחן'}</h2><button class="xbtn" data-close="1" aria-label="סגירה">×</button></div>
+    <div class="step-t">1. רגל ברזל</div>
+    <div class="opts">${legs.map(p => {
+      const av = availFor(p.id, TM.lid);
+      return `<button class="opt ${TM.leg === p.id ? 'sel' : ''}" data-leg="${esc(p.id)}" ${av <= 0 ? 'disabled' : ''}>${img(p.img, p.code)}<b>${esc(p.code)}</b>${money(p.price)}<br><small>${avTxt(av)}</small></button>`;
+    }).join('')}</div>
+    <div class="step-t">2. גוון הפלטה</div>
+    <div class="opts">${TONES.map(([t, f]) => {
+      const any = S.products.some(p => p.kind === 'top' && p.tone === t && availFor(p.id, TM.lid) > 0);
+      return `<button class="opt ${TM.tone === t ? 'sel' : ''}" data-tone="${t}" ${any ? '' : 'disabled'}>${img('TOP-' + f + '.webp', t)}<b>${t}</b></button>`;
+    }).join('')}</div>
+    <div class="step-t">3. קוטר הפלטה</div>
+    ${TM.tone ? `<div class="chips">${dias.map(d => {
+      const p = topFor(TM.tone, d); if (!p) return '';
+      const av = availFor(p.id, TM.lid);
+      return `<button class="chip ${Number(TM.dia) === d ? 'sel' : ''}" data-dia="${d}" ${av <= 0 ? 'disabled' : ''}><b>${d} ס"מ</b>${money(p.price)}<br><small>${avTxt(av)}</small></button>`;
+    }).join('')}</div>` : '<div class="lead">בחרו קודם גוון</div>'}
+    <div class="tm-sum">
+      ${TM.leg && top ? `<div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap"><span>רגל ${esc(legP.code)} + פלטה ${esc(top.tone)} ${top.diameter} ס"מ</span><b>${money(price)} לשולחן</b></div>
+        <div style="display:flex;align-items:center;gap:12px;margin-top:10px">
+          <div class="stepper" style="width:140px;margin:0"><button data-tq="-1">−</button><span class="q">${TM.qty}</span><button data-tq="1" ${TM.qty >= max ? 'disabled' : ''}>+</button></div>
+          ${TM.qty >= max ? `<span class="maxhint" style="margin:0">${MAX_MSG}</span>` : ''}</div>
+        <button class="btn btn-primary" style="width:100%;margin-top:12px" data-tsave="1" ${max > 0 ? '' : 'disabled'}>${TM.lid ? 'עדכון' : 'הוספה לעגלה'} · ${money(price * TM.qty)}</button>`
+        : '<span class="meta">בחרו רגל, גוון וקוטר</span>'}
+      ${TM.lid ? `<button class="linkbtn" style="margin-top:10px;color:var(--danger)" data-tdel="1">הסרת השולחן מהעגלה</button>` : ''}
+    </div></div></div>`;
+}
+function saveTable() {
+  const top = topFor(TM.tone, TM.dia);
+  if (!TM.leg || !top) return;
+  if (TM.lid) S.cart = S.cart.filter(l => l.lid !== TM.lid);
+  const same = S.cart.find(l => l.type === 'table' && l.leg === TM.leg && l.top === top.id);
+  if (same) same.qty += TM.qty;
+  else S.cart.push({ lid: ++lidSeq, type: 'table', leg: TM.leg, top: top.id, qty: TM.qty });
+  clampCart();
+  toast(TM.lid ? 'השולחן עודכן' : 'השולחן נוסף לעגלה');
+  TM = null; renderTable(); saveState(); renderAll();
+}
+
+// ---------- פס תקציב ----------
+function renderBudget() {
+  const total = cartTotal(), left = S.budget - total, pct = Math.min(100, total / S.budget * 100);
+  animateNum($('#bb-total'), total);
+  const bar = $('#bb-bar');
+  bar.querySelector('i').style.width = pct + '%';
+  bar.classList.toggle('mid', total <= S.budget && pct >= 80);
+  bar.classList.toggle('over', total > S.budget);
+  if (left >= 0) { $('#bb-left-lbl').innerHTML = `יתרת תקציב: <b id="bb-left">${money(left)}</b>`; $('#bb-left-lbl').classList.remove('over-txt'); }
+  else { $('#bb-left-lbl').innerHTML = `⚠️ מעל התקציב: <b id="bb-left">${money(-left)}</b>`; $('#bb-left-lbl').classList.add('over-txt'); }
+  const c = cartCount();
+  $('#bb-count').textContent = c ? `(${c})` : '';
+  $('#toSummary').disabled = !c;
+}
+
+// ---------- סיכום ----------
+function renderSummary() {
+  const c = S.customer;
+  $('#custBox').innerHTML = `<b>${esc(c.zimmer)}</b>, ${esc(c.town)}<br>${esc(c.contact)} · <span dir="ltr">${esc(c.phone)}</span> · ${esc(c.email)}<br>אספקה: ${esc(c.address)}<br>הגעה לאולם: ${esc(DAYS[c.day] || '')}`;
+  if (!S.cart.length) {
+    $('#lines').innerHTML = '<div class="empty panel">העגלה ריקה. <button class="linkbtn" data-go="3">לקטלוג</button></div>';
+  } else {
+    $('#lines').innerHTML = S.cart.map(l => {
+      const max = maxForLine(l), sh = S.shortages[l.lid];
+      let pic, sub;
+      if (l.type === 'item') { const p = S.byId[l.id]; pic = p.img; sub = [p.code, p.color, p.gift ? 'במתנה: ' + p.gift : ''].filter(Boolean).join(' · '); }
+      else { const lg = S.byId[l.leg], tp = S.byId[l.top]; pic = tp.img; sub = `רגל ${lg.code} (${money(lg.price)}) + פלטה ${tp.code} ${tp.tone} ${tp.diameter} ס"מ (${money(tp.price)})`; }
+      const name = l.type === 'item' ? S.byId[l.id].name : 'שולחן';
+      return `<div class="line ${sh ? 'short' : ''}">${img(pic, name)}
+        <div class="info"><div class="t">${esc(name)}</div><div class="d">${esc(sub)}</div>
+          ${sh ? `<div class="short-msg">${esc(sh)}</div>` : ''}
+          <div class="stepper"><button data-ldec="${l.lid}" aria-label="פחות">−</button><span class="q">${l.qty}</span><button data-linc="${l.lid}" aria-label="עוד" ${S.live && l.qty < max ? '' : 'disabled'}>+</button></div>
+          ${S.live && l.qty >= max ? `<div class="maxhint">${MAX_MSG}</div>` : ''}
+          ${l.type === 'table' ? `<button class="linkbtn" data-editt="${l.lid}" style="font-size:13px;margin-top:4px">עריכת שולחן</button>` : ''}
+        </div>
+        <div class="sum">${money(linePrice(l) * l.qty)}<div class="d" style="text-align:left">${l.qty} × ${money(linePrice(l))}</div></div></div>`;
+    }).join('');
+  }
+  const total = cartTotal(), over = Math.max(0, total - S.budget);
+  $('#totals').innerHTML = `<div><span>סה"כ פריטים</span><span>${cartCount()}</span></div>
+    <div><span>תקציב</span><span>${money(S.budget)}</span></div>
+    <div class="grand"><span>סה"כ הזמנה</span><span>${money(total)}</span></div>
+    ${over ? `<div class="over-txt"><b>מעל התקציב - לתשלום על ידי בעל/ת הצימר</b><b>${money(over)}</b></div>` : `<div><span>יתרת תקציב</span><span>${money(S.budget - total)}</span></div>`}`;
+  $('#overCheck').classList.toggle('hidden', !over);
+  $('#overAmt').textContent = money(over);
+  const ready = S.live && S.open && S.cart.length && (!over || $('#overOk').checked);
+  $('#sendBtn').disabled = !ready;
+  $('#sendBtn').textContent = !S.live ? 'בודק מלאי...' : 'שליחת ההזמנה';
+  $('#sumBanner').innerHTML = !S.open ? '<div class="banner err">שליחת הזמנות סגורה כרגע (גרסת בדיקה).</div>' : '';
+}
+
+function renderAll() {
+  updateStockUI();
+  if (S.screen === 2) $('#g-budget').textContent = money(S.budget);
+  if (S.screen === 3) { renderTabs(); renderCatalog(); renderBudget(); }
+  if (S.screen === 4) renderSummary();
+  if (TM) renderTable();
+}
+
+// ---------- שליחה (שלב 4) ----------
+function submitOrder() {
+  toast('השליחה תופעל בשלב הבא של הבנייה (שלב 4).');
+}
+
+// =====================================================================
+// אירועים
+// =====================================================================
+document.addEventListener('click', e => {
+  const t = e.target.closest('button,[data-zoom],[data-close],[data-dclose],.day');
+  if (!t) return;
+  const d = t.dataset;
+  if (d.dclose && e.target === t) { $('#dialogRoot').innerHTML = ''; return; }
+  if (d.reset) { resetAll(); toast('אפשר להתחיל הזמנה חדשה'); return; }
+  if (d.scroll) { const tabs = $('#tabs'); tabs.scrollBy({ left: Number(d.scroll) * tabs.clientWidth * 0.7, behavior: 'smooth' }); return; }
+  if (d.close && (e.target === t)) { TM = null; renderTable(); return; }
+  if (t.classList.contains('day')) { S.customer.day = d.v; fillReg(); $('#f-day').classList.remove('invalid'); $('#f-day').nextElementSibling.textContent = ''; saveState(); return; }
+  if (d.go) { go(Number(d.go)); return; }
+  if (d.tab) { S.tab = d.tab; saveState(); renderTabs(); renderCatalog(); window.scrollTo({ top: 0 }); return; }
+  if (d.add) { setItemQty(d.add, 1); return; }
+  if (d.inc) { setItemQty(d.inc, (itemLine(d.inc) || { qty: 0 }).qty + 1); return; }
+  if (d.dec) { setItemQty(d.dec, (itemLine(d.dec) || { qty: 0 }).qty - 1); return; }
+  if (d.linc) { const l = S.cart.find(x => x.lid == d.linc); setLineQty(l.lid, l.qty + 1); return; }
+  if (d.ldec) { const l = S.cart.find(x => x.lid == d.ldec); setLineQty(l.lid, l.qty - 1); return; }
+  if (d.build) { openTable(null); return; }
+  if (d.editt) { openTable(Number(d.editt)); return; }
+  if (d.leg) { TM.leg = d.leg; renderTable(); return; }
+  if (d.tone) { TM.tone = d.tone; if (TM.dia && !(topFor(TM.tone, TM.dia) && availFor(topFor(TM.tone, TM.dia).id, TM.lid) > 0)) TM.dia = null; renderTable(); return; }
+  if (d.dia) { TM.dia = Number(d.dia); renderTable(); return; }
+  if (d.tq) {
+    TM.qty = Math.max(1, TM.qty + Number(d.tq));
+    const top = topFor(TM.tone, TM.dia);
+    if (Number(d.tq) > 0 && top && TM.qty >= Math.min(availFor(TM.leg, TM.lid), availFor(top.id, TM.lid))) toast(MAX_MSG);
+    renderTable(); return;
+  }
+  if (d.tsave) { saveTable(); return; }
+  if (d.tdel) { S.cart = S.cart.filter(l => l.lid !== TM.lid); TM = null; renderTable(); saveState(); renderAll(); toast('השולחן הוסר'); return; }
+  if (d.zoom !== undefined && d.zoom) {
+    const z = document.createElement('div'); z.className = 'zoom';
+    z.innerHTML = `<img src="pic/${esc(d.zoom)}" alt="">`; z.onclick = () => z.remove();
+    document.body.appendChild(z); return;
+  }
+});
+$('#toGuide').onclick = () => { readReg(); if (validateReg(true)) go(2); };
+$('#toSummary').onclick = () => go(4);
+$('#restartBtn').onclick = askReset;
+$('#tabs').addEventListener('scroll', updateEdges, { passive: true });
+window.addEventListener('scroll', updateSticky, { passive: true });
+window.addEventListener('resize', () => { updateSticky(); updateEdges(); centerActiveTab(true); });
+$('#sendBtn').onclick = submitOrder;
+$('#overOk').onchange = renderSummary;
+document.querySelectorAll('#regForm .inp').forEach(el => el.addEventListener('input', () => {
+  el.classList.remove('invalid'); el.nextElementSibling.textContent = ''; readReg(); saveState();
+}));
+document.addEventListener('keydown', e => { if (e.key === 'Escape') { document.querySelectorAll('.zoom').forEach(z => z.remove()); $('#dialogRoot').innerHTML = ''; if (TM) { TM = null; renderTable(); } } });
+document.addEventListener('visibilitychange', () => { if (!document.hidden && S.screen >= 3) loadLive(true); });
+
+// =====================================================================
+// הפעלה
+// =====================================================================
+(async function init() {
+  const saved = store.get(CONFIG.STORE);
+  if (saved) { S.customer = saved.customer || {}; S.cart = saved.cart || []; S.tab = saved.tab || null; }
+  fillReg();
+  updateSticky();
+  await loadSnapshot();
+  const start = saved && saved.screen && validateReg(false) ? saved.screen : 1;
+  go(start);
+  loadLive();
+  setInterval(() => { if (S.screen >= 3 && !document.hidden) loadLive(true); }, CONFIG.REFRESH_MS);
+})();
+</script>
+</body>
+</html>
