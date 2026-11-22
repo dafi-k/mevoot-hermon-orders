@@ -124,5 +124,79 @@ env2.ctx.MailApp.sendEmail = o => env2.mails.push(o);
 env2.ctx.resendFailedEmails();
 ok(/^נשלח /.test(cell(O2, id2, 'סטטוס מייל')) && env2.mails.length === 1, 'resendFailedEmails שולח שוב ומעדכן ל"נשלח"');
 
+// ===================================================================
+console.log('--- ניהול: כניסה');
+const A = makeEnv();
+const AC = A.ctx.getSettings_()['קוד בדיקה'];
+const AP = b => JSON.parse(A.ctx.doPost({ postData: { contents: JSON.stringify(b) } }).s);
+r = AP({ action: 'adminLogin', name: 'דפי', password: 'x' });
+ok(!r.ok && /לא הוגדרה סיסמה/.test(r.error), 'בלי ADMIN_PASSWORD: כניסה נחסמת');
+A.props.ADMIN_PASSWORD = 'Sod-2026!';
+r = AP({ action: 'adminLogin', name: 'דפי', password: 'wrong' });
+ok(!r.ok && r.error === 'סיסמה שגויה', 'סיסמה שגויה נדחית');
+r = AP({ action: 'adminData', token: 'fake' });
+ok(!r.ok && r.code === 'auth', 'בלי אסימון תקף: אין גישה לנתונים');
+r = AP({ action: 'receiveStock', token: 'fake', id: 'CH-P1', qty: 5 });
+ok(!r.ok && r.code === 'auth', 'בלי אסימון תקף: אין כניסת סחורה');
+const login = AP({ action: 'adminLogin', name: 'דפי', password: 'Sod-2026!' });
+ok(login.ok && login.token, 'סיסמה נכונה: מתקבל אסימון');
+const TK = login.token;
+for (let i = 0; i < 10; i++) AP({ action: 'adminLogin', name: 'פורץ', password: 'bad' + i });
+r = AP({ action: 'adminLogin', name: 'דפי', password: 'Sod-2026!' });
+ok(!r.ok && /יותר מדי ניסיונות/.test(r.error), 'אחרי 10 ניסיונות שגויים: חסימה זמנית');
+
+console.log('--- ניהול: הזמנה, ביטול ומלאי');
+const PR = A.sheets['מוצרים'], OR = A.sheets['הזמנות'], ITm = A.sheets['פריטי הזמנה'], MVm = A.sheets['תנועות מלאי'];
+const rem = id => cell(PR, id, 'יתרה');
+const o1 = AP({ action: 'submitOrder', testCode: AC, overOk: true, customer: cust('0527777777'),
+  lines: [{ type: 'item', id: 'DC1', qty: 3 }, { type: 'table', leg: 'LG-LP3', top: 'TOP-P2', qty: 2 }, { type: 'item', id: 'OD5', qty: 1 }] });
+ok(o1.ok && rem('DC1') === 9 && rem('LG-LP3') === 9 && rem('TOP-P2') === 5, 'הזמנה הורידה מלאי (DC1 12→9, LP3 11→9, P2 7→5)');
+let d = AP({ action: 'adminData', token: TK });
+ok(d.ok && d.products.length === 160 && d.orders.length === 1 && d.orders[0].items.length === 4, 'נתוני ניהול: 160 מוצרים, הזמנה אחת עם 4 שורות');
+const pDC1 = d.products.find(p => p.id === 'DC1');
+ok(pDC1.initial === 12 && pDC1.ordered === 3 && pDC1.remaining === 9 && !pDC1.mismatch, 'מלאי DC1: התחלתי 12, הוזמן 3, יתרה 9, עקבי');
+ok(d.products.find(p => p.id === 'OD5').ordered === 1 && d.products.find(p => p.id === 'OD5').remaining === null, 'ריהוט חוץ: נספר כהוזמן, בלי יתרה');
+ok(/^\d\d\/\d\d\/\d{4} \d\d:\d\d$/.test(d.orders[0].date) && /^\d\d\/\d\d\/\d{4} \d\d:\d\d$/.test(d.moves[0].date), 'תאריך ושעה בהזמנות וביומן: ' + d.orders[0].date);
+
+r = AP({ action: 'receiveStock', token: TK, id: 'DC1', qty: 10, date: '25.11.26', note: 'משלוח מהספק' });
+ok(r.ok && rem('DC1') === 19, 'כניסת סחורה: DC1 9→19');
+const lastMove = MVm.data[MVm.data.length - 1];
+ok(lastMove[col(MVm, 'סוג')] === 'כניסת סחורה' && lastMove[col(MVm, 'מי')] === 'דפי' && lastMove[col(MVm, 'שינוי')] === 10 && /25\.11\.26/.test(lastMove[col(MVm, 'הפניה')]), 'יומן: כניסת סחורה, מי=דפי, +10, תאריך קבלה');
+r = AP({ action: 'receiveStock', token: TK, id: 'OD5', qty: 1 });
+ok(!r.ok, 'כניסת סחורה למוצר ללא הגבלה: נדחית');
+r = AP({ action: 'receiveStock', token: TK, id: 'DC1', qty: -2 });
+ok(!r.ok, 'כמות שלילית בכניסת סחורה: נדחית');
+r = AP({ action: 'adjustStock', token: TK, id: 'DC1', remaining: 17 });
+ok(!r.ok && /סיבה/.test(r.error), 'תיקון ידני בלי סיבה: נדחה');
+r = AP({ action: 'adjustStock', token: TK, id: 'DC1', remaining: 17, note: 'ספירת מלאי - 2 פגומים' });
+ok(r.ok && rem('DC1') === 17 && MVm.data[MVm.data.length - 1][col(MVm, 'שינוי')] === -2, 'תיקון ידני: DC1 19→17, ביומן -2');
+
+r = AP({ action: 'setOrderStatus', token: TK, orderId: o1.orderId, status: 'אושרה' });
+ok(r.ok && cell(OR, o1.orderId, 'סטטוס') === 'אושרה' && rem('DC1') === 17, 'אישור הזמנה: הסטטוס משתנה, המלאי לא');
+r = AP({ action: 'setOrderStatus', token: TK, orderId: o1.orderId, status: 'בוטלה', note: 'בדיקה' });
+ok(r.ok && rem('DC1') === 20 && rem('LG-LP3') === 11 && rem('TOP-P2') === 7, 'ביטול: הכמויות חזרו למלאי (DC1 +3, LP3 +2, P2 +2)');
+ok(ITm.data.slice(1).every(x => x[col(ITm, 'סטטוס הזמנה')] === 'בוטלה'), 'ביטול: כל פריטי ההזמנה מסומנים "בוטלה"');
+ok(MVm.data.filter(x => x[col(MVm, 'סוג')] === 'ביטול').length === 3, 'ביטול: 3 תנועות "ביטול" ביומן (בלי ריהוט החוץ)');
+ok(/בוטלה \(דפי\): בדיקה/.test(cell(OR, o1.orderId, 'הערות צוות')), 'ביטול: נרשם בהערות צוות מי ביטל ולמה');
+r = AP({ action: 'setOrderStatus', token: TK, orderId: o1.orderId, status: 'בוטלה' });
+ok(r.ok && r.unchanged && rem('DC1') === 20, 'ביטול כפול: לא מחזיר מלאי פעמיים');
+r = AP({ action: 'setOrderStatus', token: TK, orderId: o1.orderId, status: 'חדשה' });
+ok(!r.ok && /לא חוזרת/.test(r.error), 'הזמנה שבוטלה לא חוזרת לחדשה');
+d = AP({ action: 'adminData', token: TK });
+const pDC1b = d.products.find(p => p.id === 'DC1');
+ok(pDC1b.ordered === 0 && pDC1b.received === 10 && pDC1b.adjusted === -2 && pDC1b.remaining === 20 && !pDC1b.mismatch, 'אחרי הכל: הוזמן 0, נכנס 10, תיקון -2, יתרה 20 - עקבי');
+PR.data.find(x => x[0] === 'DC2')[col(PR, 'יתרה')] = 99;
+d = AP({ action: 'adminData', token: TK });
+ok(d.products.find(p => p.id === 'DC2').mismatch, 'שינוי ידני של יתרה בגיליון מזוהה כ"לא עקבי"');
+
+console.log('--- ניהול: שליחה חוזרת של מייל');
+A.ctx.setSetting_('נמעני מייל צוות', 'a@contrast.test');
+const o2 = AP({ action: 'submitOrder', testCode: AC, customer: cust('0528888888'), lines: [{ type: 'item', id: 'CH-P1', qty: 1 }] });
+r = AP({ action: 'resendEmail', token: 'fake', orderId: o2.orderId });
+ok(!r.ok && r.code === 'auth', 'שליחה חוזרת בלי כניסה: נחסמת');
+r = AP({ action: 'resendEmail', token: TK, orderId: o2.orderId });
+ok(r.ok && /^נשלח /.test(cell(OR, o2.orderId, 'סטטוס מייל')) && A.mails.length === 1, 'שליחה חוזרת: נשלח ועודכן');
+ok(/QUERY\('פריטי הזמנה'!A:M/.test(A.sheets['ריכוז כמויות'].formula) && /not A starts with 'TEST'/.test(A.sheets['סיכום לפי צימר'].formula), 'לשוניות ריכוז כמויות וסיכום לפי צימר: נוסחאות QUERY בלי הזמנות בדיקה');
+
 console.log(fails ? `\n${fails} בדיקות נכשלו` : '\nכל בדיקות השרת עברו');
 process.exit(fails ? 1 : 0);

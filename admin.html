@@ -1,0 +1,489 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>ניהול - נבחרת צימרי מבואות החרמון</title>
+<meta name="theme-color" content="#3F4A27">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%233F4A27'/%3E%3Cpath d='M9 22c0-8 6-13 14-13-1 8-6 13-14 13z' fill='%23C9A45C'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --olive:#5C6B3A; --olive-dark:#3F4A27; --olive-soft:#E9ECDD;
+  --cream:#F7F3EA; --card:#FFFDF8; --wheat:#C9A45C; --wheat-soft:#F4EBD6;
+  --terra:#C0663F; --terra-soft:#F8E4DA; --danger:#B23A2E; --danger-soft:#FBE3DF;
+  --text:#2F3A26; --muted:#6E6A5E; --border:#E6DDC8; --radius:12px; --shadow:0 2px 10px rgba(63,74,39,.08);
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:'Assistant',Arial,sans-serif;background:var(--cream);color:var(--text);font-size:15px;line-height:1.45}
+button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit}
+.hidden{display:none!important}
+.top{background:var(--olive-dark);color:#fff;padding:10px 16px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;position:sticky;top:0;z-index:30}
+.top img{height:22px;background:#fff;padding:4px 8px;border-radius:6px}
+.top .t{font-weight:800;font-size:17px}
+.top .sp{flex:1}
+.top .meta{font-size:13px;opacity:.85}
+.top button{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.3);color:#fff;border-radius:999px;padding:7px 14px;cursor:pointer;font-weight:700}
+.wrap{max-width:1300px;margin:0 auto;padding:16px}
+.panel{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;box-shadow:var(--shadow);margin-bottom:14px}
+h2{margin:0 0 10px;color:var(--olive-dark);font-size:19px}
+.lead{color:var(--muted);margin:0 0 12px}
+.btn{border:0;border-radius:10px;padding:10px 18px;font-weight:800;cursor:pointer;min-height:40px}
+.btn-primary{background:var(--olive);color:#fff}.btn-primary:disabled{background:#A9AE98;cursor:not-allowed}
+.btn-ghost{background:transparent;border:1.5px solid var(--border);color:var(--olive-dark)}
+.btn-danger{background:var(--danger);color:#fff}
+.btn-sm{padding:6px 12px;min-height:34px;font-size:14px;border-radius:8px}
+.inp{width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:9px;background:#fff;min-height:42px}
+.inp:focus{outline:none;border-color:var(--olive);box-shadow:0 0 0 3px var(--olive-soft)}
+label.f{display:block;font-weight:700;font-size:14px;margin-bottom:4px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
+.row>*{flex:1;min-width:150px}
+
+/* כניסה */
+.login{max-width:380px;margin:60px auto}
+.login .panel{padding:24px}
+.err{color:var(--danger);font-weight:700;min-height:20px;margin-top:8px}
+
+/* מדדים */
+.kpis{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));margin-bottom:14px}
+.kpi{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px;box-shadow:var(--shadow);cursor:default}
+.kpi .n{font-size:26px;font-weight:800;color:var(--olive-dark);line-height:1.1}
+.kpi .l{font-size:13px;color:var(--muted)}
+.kpi.warn .n{color:var(--terra)}.kpi.bad .n{color:var(--danger)}
+.kpi[data-jump]{cursor:pointer}
+.kpi[data-jump]:hover{border-color:var(--olive)}
+
+/* טאבים */
+.tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.tab{border:1.5px solid var(--border);background:var(--card);border-radius:999px;padding:8px 16px;font-weight:700;cursor:pointer;min-height:40px}
+.tab.active{background:var(--olive);border-color:var(--olive);color:#fff}
+.tab .c{display:inline-block;min-width:20px;margin-inline-start:6px;padding:0 6px;border-radius:999px;background:var(--danger);color:#fff;font-size:12px;line-height:20px;text-align:center}
+.toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px}
+.toolbar .inp{max-width:280px}
+.chip{border:1.5px solid var(--border);background:#fff;border-radius:999px;padding:6px 12px;cursor:pointer;font-weight:600;font-size:14px}
+.chip.active{background:var(--olive-soft);border-color:var(--olive)}
+.check{display:inline-flex;gap:6px;align-items:center;font-size:14px;cursor:pointer}
+
+/* טבלאות */
+.tw{overflow-x:auto;border:1px solid var(--border);border-radius:var(--radius);background:#fff}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th{background:var(--olive);color:#fff;text-align:right;padding:9px 10px;white-space:nowrap;position:sticky;top:0}
+td{padding:8px 10px;border-bottom:1px solid var(--border);vertical-align:middle}
+tr:hover td{background:#FBF8F1}
+td.num,th.num{text-align:center;white-space:nowrap}
+td img{width:42px;height:42px;object-fit:contain;background:#fff;border-radius:6px;display:block}
+tr.out td{background:var(--danger-soft)}
+tr.low td{background:var(--wheat-soft)}
+tr.mis td{outline:2px dashed var(--terra);outline-offset:-2px}
+tfoot td{font-weight:800;background:var(--olive-soft)}
+.pill{display:inline-block;border-radius:999px;padding:2px 10px;font-size:12.5px;font-weight:700;white-space:nowrap}
+.p-ok{background:var(--olive-soft);color:var(--olive-dark)}
+.p-low{background:var(--wheat-soft);color:#7A5B1E}
+.p-out{background:var(--danger-soft);color:var(--danger)}
+.p-inf{background:#EEE;color:#555}
+.p-mis{background:var(--terra-soft);color:var(--terra)}
+.p-test{background:var(--terra);color:#fff}
+.p-new{background:var(--wheat-soft);color:#7A5B1E}.p-appr{background:var(--olive-soft);color:var(--olive-dark)}
+.p-sup{background:#DDE8F3;color:#24507A}.p-can{background:#EEE;color:#777;text-decoration:line-through}
+.plus{color:var(--olive);font-weight:800}.minus{color:var(--danger);font-weight:800}
+.muted{color:var(--muted);font-size:13px}
+
+/* הזמנות */
+.order{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:10px;box-shadow:var(--shadow)}
+.order.cancelled{opacity:.6}
+.order .h{display:grid;grid-template-columns:1.2fr 1.6fr 1fr 1.2fr 1.4fr;gap:10px;padding:12px 14px;align-items:center}
+@media(max-width:900px){.order .h{grid-template-columns:1fr 1fr}}
+.order .id{font-weight:800}
+.order .tot{font-weight:800;font-size:16px}
+.order .over{color:var(--danger);font-weight:700;font-size:13px}
+.order .b{border-top:1px solid var(--border);padding:10px 14px}
+.order select{padding:6px 8px;border-radius:8px;border:1.5px solid var(--border);background:#fff;min-height:36px;font-weight:700}
+.mailbad{color:var(--danger);font-weight:700;font-size:13px}
+.linkbtn{background:none;border:0;color:var(--olive);font-weight:700;cursor:pointer;text-decoration:underline;padding:0}
+
+/* מודאל */
+.mbg{position:fixed;inset:0;background:rgba(30,35,20,.55);z-index:60;display:flex;align-items:center;justify-content:center;padding:16px}
+.modal{background:var(--cream);border-radius:16px;padding:20px;width:100%;max-width:460px;max-height:92vh;overflow:auto}
+.modal .acts{display:flex;gap:8px;justify-content:flex-start;margin-top:14px;flex-wrap:wrap}
+.toast{position:fixed;left:0;right:0;margin:0 auto;width:fit-content;max-width:92vw;bottom:24px;background:var(--olive-dark);color:#fff;padding:12px 18px;border-radius:12px;z-index:80;font-weight:700;box-shadow:var(--shadow)}
+.toast.bad{background:var(--danger)}
+.spin{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:s .8s linear infinite;vertical-align:-2px}
+@keyframes s{to{transform:rotate(360deg)}}
+.empty{text-align:center;color:var(--muted);padding:24px}
+</style>
+</head>
+<body>
+
+<!-- כניסה -->
+<section id="loginView" class="login hidden">
+  <div class="panel">
+    <h2>כניסת צוות</h2>
+    <p class="lead">מסכי ניהול - נבחרת צימרי מבואות החרמון</p>
+    <form id="loginForm">
+      <label class="f" for="lName">שם</label>
+      <input class="inp" id="lName" autocomplete="username" required>
+      <label class="f" for="lPass" style="margin-top:10px">סיסמה</label>
+      <input class="inp" id="lPass" type="password" autocomplete="current-password" required>
+      <button class="btn btn-primary" style="width:100%;margin-top:14px" id="lBtn">כניסה</button>
+      <div class="err" id="lErr"></div>
+    </form>
+  </div>
+</section>
+
+<!-- ניהול -->
+<div id="appView" class="hidden">
+  <header class="top">
+    <img src="pic/logo-contrast.png" alt="CONTRAST">
+    <span class="t">ניהול הזמנות ומלאי</span>
+    <span class="sp"></span>
+    <span class="meta" id="meta"></span>
+    <button id="refreshBtn" type="button">רענון</button>
+    <button id="logoutBtn" type="button">יציאה</button>
+  </header>
+  <main class="wrap">
+    <div id="banner"></div>
+    <div class="kpis" id="kpis"></div>
+    <nav class="tabs" id="tabs"></nav>
+    <div class="toolbar"><label class="check"><input type="checkbox" id="incTest"> כולל הזמנות בדיקה (TEST) בסיכומים</label></div>
+    <section id="view"></section>
+  </main>
+</div>
+
+<div id="modalRoot"></div>
+
+<script>
+'use strict';
+const API = 'https://script.google.com/macros/s/AKfycbynZDBWrzSYNvW6bsdgW3KMWGpIV8maveVTKufv3JilsuD_LYD7d5OxK5h4vuzVMQnMIg/exec';
+const TABS = [['stock', 'מלאי'], ['receive', 'כניסת סחורה'], ['orders', 'הזמנות'], ['totals', 'ריכוז כמויות'], ['zimmers', 'סיכום לפי צימר'], ['moves', 'יומן תנועות']];
+const STATUSES = ['חדשה', 'אושרה', 'סופקה', 'בוטלה'];
+const STATUS_CLS = { 'חדשה': 'p-new', 'אושרה': 'p-appr', 'סופקה': 'p-sup', 'בוטלה': 'p-can' };
+
+const A = { token: '', name: '', data: null, tab: 'stock', loading: false,
+  f: { q: '', stock: 'all', cat: '', oq: '', ost: '', mq: '', mtype: '' }, incTest: null };
+
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const money = n => '₪' + Math.round(Number(n) || 0).toLocaleString('he-IL');
+const ss = { get(k) { try { return sessionStorage.getItem(k); } catch (e) { return null; } }, set(k, v) { try { sessionStorage.setItem(k, v); } catch (e) {} }, del(k) { try { sessionStorage.removeItem(k); } catch (e) {} } };
+function toast(msg, bad) {
+  document.querySelectorAll('.toast').forEach(t => t.remove());
+  const t = document.createElement('div'); t.className = 'toast' + (bad ? ' bad' : ''); t.textContent = msg;
+  document.body.appendChild(t); setTimeout(() => t.remove(), bad ? 6000 : 3000);
+}
+async function api(body) {
+  const r = await fetch(API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ ...body, token: A.token }) });
+  const j = await r.json();
+  if (j && j.code === 'auth') { logout('צריך להיכנס מחדש'); throw new Error('auth'); }
+  return j;
+}
+
+// ---------- כניסה ----------
+function showLogin(msg) {
+  $('#appView').classList.add('hidden'); $('#loginView').classList.remove('hidden');
+  $('#lErr').textContent = msg || '';
+  $('#lName').value = ss.get('mh-admin-name') || '';
+  (ss.get('mh-admin-name') ? $('#lPass') : $('#lName')).focus();
+}
+function logout(msg) { A.token = ''; A.data = null; ss.del('mh-admin-token'); showLogin(msg); }
+$('#loginForm').onsubmit = async e => {
+  e.preventDefault();
+  $('#lBtn').disabled = true; $('#lErr').textContent = '';
+  try {
+    const r = await fetch(API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'adminLogin', name: $('#lName').value, password: $('#lPass').value }) }).then(x => x.json());
+    if (!r.ok) { $('#lErr').textContent = r.error || 'הכניסה נכשלה'; return; }
+    A.token = r.token; A.name = r.name;
+    ss.set('mh-admin-token', r.token); ss.set('mh-admin-name', r.name);
+    $('#lPass').value = '';
+    await enter();
+  } catch (err) { $('#lErr').textContent = 'אין חיבור לשרת'; }
+  finally { $('#lBtn').disabled = false; }
+};
+async function enter() {
+  $('#loginView').classList.add('hidden'); $('#appView').classList.remove('hidden');
+  await load();
+}
+$('#logoutBtn').onclick = () => logout('יצאת מהמערכת');
+
+// ---------- טעינה ----------
+async function load(quiet) {
+  if (A.loading) return;
+  A.loading = true;
+  $('#refreshBtn').innerHTML = '<span class="spin"></span>';
+  try {
+    const d = await api({ action: 'adminData' });
+    if (!d.ok) { toast(d.error || 'טעינה נכשלה', true); return; }
+    A.data = d; A.name = d.name;
+    if (A.incTest === null) { A.incTest = !d.settings.open; $('#incTest').checked = A.incTest; }
+    render();
+  } catch (e) { if (e.message !== 'auth' && !quiet) toast('אין חיבור לשרת', true); }
+  finally { A.loading = false; $('#refreshBtn').textContent = 'רענון'; }
+}
+$('#refreshBtn').onclick = () => load();
+$('#incTest').onchange = e => { A.incTest = e.target.checked; render(); };
+setInterval(() => { if (A.data && !document.hidden && !$('#modalRoot').innerHTML) load(true); }, 60000);
+
+// ---------- חישובים ----------
+const D = () => A.data;
+function stockState(p) {
+  if (p.unlimited) return ['inf', 'ללא הגבלה'];
+  if (p.remaining <= 0) return ['out', 'אזל'];
+  if (p.remaining <= D().settings.low) return ['low', 'מלאי נמוך'];
+  return ['ok', 'במלאי'];
+}
+const activeOrders = () => D().orders.filter(o => o.status !== 'בוטלה' && (A.incTest || !o.test));
+const mailFailed = o => o.status !== 'בוטלה' && !/^נשלח/.test(o.mail);
+
+// ---------- תצוגה ----------
+function render() {
+  const d = D();
+  $('#meta').textContent = `${A.name} · עודכן ${d.time}`;
+  $('#banner').innerHTML = d.settings.open ? '' :
+    '<div class="panel" style="background:var(--terra-soft);border-color:var(--terra)"><b>האתר סגור להזמנות</b> ("פתוח להזמנות" = לא בלשונית הגדרות). רק הזמנות בדיקה עם קוד בדיקה נקלטות.</div>';
+  const out = d.products.filter(p => !p.unlimited && p.active && p.remaining <= 0).length;
+  const low = d.products.filter(p => !p.unlimited && p.active && p.remaining > 0 && p.remaining <= d.settings.low).length;
+  const act = activeOrders();
+  const failed = d.orders.filter(mailFailed).length;
+  const mis = d.products.filter(p => p.mismatch).length;
+  $('#kpis').innerHTML = [
+    ['הזמנות פעילות', act.length, '', 'orders'],
+    ['סה"כ הזמנות', money(act.reduce((s, o) => s + o.total, 0)), '', 'zimmers'],
+    ['פריטים שאזלו', out, out ? 'bad' : '', 'stock:out'],
+    ['מלאי נמוך', low, low ? 'warn' : '', 'stock:low'],
+    ['מיילים שלא נשלחו', failed, failed ? 'bad' : '', 'orders:mail'],
+    ['מיילים שנותרו היום', d.mail.remaining, d.mail.remaining < 40 ? 'warn' : '', ''],
+    ...(mis ? [['יתרות לא עקביות', mis, 'bad', 'stock:mis']] : [])
+  ].map(([l, n, cls, j]) => `<div class="kpi ${cls}" ${j ? `data-jump="${j}"` : ''}><div class="n">${n}</div><div class="l">${l}</div></div>`).join('');
+  $('#tabs').innerHTML = TABS.map(([k, l]) => {
+    const c = k === 'orders' ? failed : k === 'stock' ? out : 0;
+    return `<button class="tab ${A.tab === k ? 'active' : ''}" data-tab="${k}">${l}${c ? `<span class="c">${c}</span>` : ''}</button>`;
+  }).join('');
+  ({ stock: vStock, receive: vReceive, orders: vOrders, totals: vTotals, zimmers: vZimmers, moves: vMoves })[A.tab]();
+}
+
+function vStock() {
+  const d = D(), f = A.f;
+  const cats = [...new Map(d.products.map(p => [p.cat, p.catLabel])).entries()];
+  const q = f.q.trim().toLowerCase();
+  const list = d.products.filter(p => {
+    const [st] = stockState(p);
+    if (f.stock === 'out' && st !== 'out') return false;
+    if (f.stock === 'low' && st !== 'low') return false;
+    if (f.stock === 'mis' && !p.mismatch) return false;
+    if (f.stock === 'inf' && st !== 'inf') return false;
+    if (f.cat && p.cat !== f.cat) return false;
+    return !q || [p.id, p.code, p.sku, p.name, p.color].join(' ').toLowerCase().includes(q);
+  });
+  $('#view').innerHTML = `<div class="toolbar">
+      <input class="inp" placeholder="חיפוש: קוד, מק&quot;ט, שם..." data-f="q" value="${esc(f.q)}">
+      <select class="inp" style="max-width:200px" data-f="cat"><option value="">כל הקטגוריות</option>${cats.map(([c, l]) => `<option value="${esc(c)}" ${f.cat === c ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select>
+      ${[['all', 'הכל'], ['low', 'מלאי נמוך'], ['out', 'אזל'], ['mis', 'לא עקבי'], ['inf', 'ללא הגבלה']].map(([k, l]) => `<button class="chip ${f.stock === k ? 'active' : ''}" data-stock="${k}">${l}</button>`).join('')}
+      <span class="muted">${list.length} מוצרים</span>
+    </div>
+    <div class="tw"><table><thead><tr><th></th><th>קוד</th><th>מוצר</th><th class="num">מלאי התחלתי</th><th class="num">נכנס</th><th class="num">הוזמן</th><th class="num">תיקונים</th><th class="num">יתרה</th><th>מצב</th><th></th></tr></thead><tbody>
+    ${list.map(p => {
+      const [st, lbl] = stockState(p);
+      return `<tr class="${st === 'out' ? 'out' : st === 'low' ? 'low' : ''} ${p.mismatch ? 'mis' : ''}">
+        <td>${p.img ? `<img src="pic/${esc(p.img)}" alt="" loading="lazy">` : ''}</td>
+        <td><b>${esc(p.code)}</b><div class="muted">${esc(p.sku)}</div></td>
+        <td>${esc(p.name)}${p.color ? ' · ' + esc(p.color) : ''}${p.active ? '' : ' <span class="pill p-inf">לא פעיל</span>'}<div class="muted">${esc(p.id)} · ${money(p.price)}</div></td>
+        <td class="num">${p.unlimited ? '-' : p.initial}</td>
+        <td class="num">${p.received ? `<span class="plus">+${p.received}</span>` : '-'}</td>
+        <td class="num">${p.ordered || '-'}</td>
+        <td class="num">${p.adjusted ? `<span class="${p.adjusted > 0 ? 'plus' : 'minus'}">${p.adjusted > 0 ? '+' : ''}${p.adjusted}</span>` : '-'}</td>
+        <td class="num" style="font-size:17px;font-weight:800">${p.unlimited ? '∞' : p.remaining}</td>
+        <td><span class="pill p-${st}">${lbl}</span>${p.mismatch ? ' <span class="pill p-mis" title="מלאי התחלתי + התנועות ביומן לא שווה ליתרה. כנראה שינו יתרה ידנית בגיליון.">לא עקבי</span>' : ''}</td>
+        <td style="white-space:nowrap">${p.unlimited ? '' : `<button class="btn btn-ghost btn-sm" data-recv="${esc(p.id)}">+ כניסה</button> <button class="btn btn-ghost btn-sm" data-adj="${esc(p.id)}">תיקון</button>`}</td></tr>`;
+    }).join('') || '<tr><td colspan="10" class="empty">אין מוצרים מתאימים</td></tr>'}
+    </tbody></table></div>`;
+}
+
+function productOptions(sel) {
+  return D().products.filter(p => !p.unlimited).map(p => `<option value="${esc(p.id)}" ${sel === p.id ? 'selected' : ''}>${esc(p.code)} · ${esc(p.name)}${p.color ? ' ' + esc(p.color) : ''} (יתרה ${p.remaining})</option>`).join('');
+}
+function today() { const d = new Date(); return d.toISOString().slice(0, 10); }
+function vReceive(pre) {
+  const recent = D().moves.filter(m => m.type === 'כניסת סחורה').slice(0, 30);
+  $('#view').innerHTML = `<div class="panel"><h2>כניסת סחורה</h2><p class="lead">הכמות מתווספת ליתרה מיד, ומופיעה באתר ברענון המלאי הבא (עד דקה).</p>
+    <form id="recvForm"><div class="row">
+      <div style="flex:2;min-width:240px"><label class="f">מוצר</label><select class="inp" id="rId" required><option value="">בחרו מוצר...</option>${productOptions(pre)}</select></div>
+      <div><label class="f">כמות שנכנסה</label><input class="inp" id="rQty" type="number" min="1" step="1" required inputmode="numeric"></div>
+      <div><label class="f">תאריך קבלה</label><input class="inp" id="rDate" type="date" value="${today()}"></div>
+    </div><div class="row" style="margin-top:10px">
+      <div style="flex:3"><label class="f">הערה</label><input class="inp" id="rNote" placeholder="למשל: משלוח מהספק, תעודת משלוח 1234"></div>
+      <div style="flex:0 0 auto"><button class="btn btn-primary" id="rBtn">הוספה למלאי</button></div>
+    </div></form></div>
+    <div class="panel"><h2>כניסות אחרונות</h2>${movesTable(recent)}</div>`;
+  $('#recvForm').onsubmit = async e => {
+    e.preventDefault();
+    const id = $('#rId').value, qty = Number($('#rQty').value);
+    if (!id || !(qty >= 1)) return toast('בחרו מוצר וכמות', true);
+    const dt = $('#rDate').value ? $('#rDate').value.split('-').reverse().join('.') : '';
+    $('#rBtn').disabled = true;
+    try {
+      const r = await api({ action: 'receiveStock', id, qty, date: dt, note: $('#rNote').value });
+      if (!r.ok) return toast(r.error, true);
+      toast(`נוספו ${qty} יחידות. יתרה חדשה: ${r.remaining}`);
+      await load(true);
+    } catch (err) { if (err.message !== 'auth') toast('אין חיבור לשרת', true); }
+    finally { const b = $('#rBtn'); if (b) b.disabled = false; }
+  };
+}
+
+function vOrders() {
+  const f = A.f, q = f.oq.trim().toLowerCase();
+  const list = D().orders.filter(o => {
+    // הזמנות בדיקה מוצגות תמיד ברשימה (מסומנות "בדיקה"), כדי שאפשר יהיה לבטל אותן
+    if (f.ost === 'mail') return mailFailed(o);
+    if (f.ost === 'test') return o.test;
+    if (f.ost && f.ost !== o.status) return false;
+    return !q || [o.id, o.zimmer, o.town, o.contact, o.phone, o.email].join(' ').toLowerCase().includes(q);
+  });
+  $('#view').innerHTML = `<div class="toolbar">
+      <input class="inp" placeholder="חיפוש: צימר, טלפון, מספר הזמנה..." data-f="oq" value="${esc(f.oq)}">
+      ${[['', 'הכל'], ...STATUSES.map(s => [s, s]), ['mail', 'מייל לא נשלח'], ['test', 'בדיקה']].map(([k, l]) => `<button class="chip ${f.ost === k ? 'active' : ''}" data-ost="${esc(k)}">${l}</button>`).join('')}
+      <span class="muted">${list.length} הזמנות</span></div>
+    ${list.map(orderCard).join('') || '<div class="panel empty">אין הזמנות</div>'}`;
+}
+function orderCard(o) {
+  const bad = mailFailed(o);
+  return `<div class="order ${o.status === 'בוטלה' ? 'cancelled' : ''}">
+    <div class="h">
+      <div><div class="id" dir="ltr" style="text-align:right">${esc(o.id)}</div><div class="muted">${esc(o.date)}</div>${o.test ? '<span class="pill p-test">בדיקה</span>' : ''}</div>
+      <div><b>${esc(o.zimmer)}</b>, ${esc(o.town)}<div class="muted">${esc(o.contact)} · <a href="tel:${esc(o.phone)}" dir="ltr">${esc(o.phone)}</a></div><div class="muted">${esc(o.email)}</div></div>
+      <div><div class="tot">${money(o.total)}</div>${o.over > 0 ? `<div class="over">חריגה ${money(o.over)}</div>` : `<div class="muted">יתרה ${money(o.budget - o.total)}</div>`}</div>
+      <div><select data-status="${esc(o.id)}" ${o.status === 'בוטלה' ? 'disabled' : ''}>${STATUSES.map(s => `<option ${s === o.status ? 'selected' : ''}>${s}</option>`).join('')}</select></div>
+      <div>${bad ? `<div class="mailbad">מייל לא נשלח${o.mail && o.mail !== 'ממתין' ? ': ' + esc(o.mail.replace(/^לא נשלח:\s*/, '')) : ' (ממתין)'}</div><button class="btn btn-ghost btn-sm" data-resend="${esc(o.id)}" style="margin-top:4px">שלח שוב</button>`
+        : `<span class="pill ${o.status === 'בוטלה' ? 'p-inf' : 'p-ok'}">${esc(o.mail || '-')}</span>`}
+        ${o.excel ? `<div><a href="${esc(o.excel)}" target="_blank" rel="noopener" class="muted">קובץ Excel</a></div>` : ''}</div>
+    </div>
+    <details class="b"><summary class="linkbtn">פריטים (${o.items.reduce((s, i) => s + i.qty, 0)}) ופרטי אספקה</summary>
+      <p class="muted" style="margin:8px 0">אספקה: ${esc(o.address)} · הגעה לאולם: ${esc(o.day)}${o.notes ? ' · הערות: ' + esc(o.notes) : ''}</p>
+      <div class="tw"><table><thead><tr><th>קוד</th><th>פריט</th><th>פירוט</th><th class="num">כמות</th><th class="num">מחיר</th><th class="num">סה"כ</th></tr></thead><tbody>
+      ${o.items.map(i => `<tr><td><b>${esc(i.code)}</b></td><td>${esc(i.name)}${i.color ? ' · ' + esc(i.color) : ''}</td><td class="muted">${esc(i.detail)}</td><td class="num">${i.qty}</td><td class="num">${money(i.price)}</td><td class="num">${money(i.subtotal)}</td></tr>`).join('')}
+      </tbody></table></div></details></div>`;
+}
+
+function vTotals() {
+  const agg = {};
+  activeOrders().forEach(o => o.items.forEach(i => {
+    const a = agg[i.id] || (agg[i.id] = { id: i.id, code: i.code, sku: i.sku, name: i.name, color: i.color, qty: 0, sum: 0 });
+    a.qty += i.qty; a.sum += i.subtotal;
+  }));
+  const byId = Object.fromEntries(D().products.map(p => [p.id, p]));
+  const list = Object.values(agg).sort((a, b) => b.qty - a.qty);
+  $('#view').innerHTML = `<p class="lead">כמה יחידות הוזמנו מכל פריט, בכל ההזמנות שלא בוטלו${A.incTest ? ' (כולל הזמנות בדיקה)' : ''}.</p>
+    <div class="tw"><table><thead><tr><th></th><th>קוד</th><th>מק"ט</th><th>פריט</th><th class="num">כמות שהוזמנה</th><th class="num">סכום</th><th class="num">יתרה במלאי</th></tr></thead><tbody>
+    ${list.map(a => { const p = byId[a.id] || {}; return `<tr><td>${p.img ? `<img src="pic/${esc(p.img)}" alt="" loading="lazy">` : ''}</td><td><b>${esc(a.code)}</b></td><td class="muted">${esc(a.sku)}</td><td>${esc(a.name)}${a.color ? ' · ' + esc(a.color) : ''}</td><td class="num" style="font-weight:800">${a.qty}</td><td class="num">${money(a.sum)}</td><td class="num">${p.unlimited ? '∞' : p.remaining ?? '-'}</td></tr>`; }).join('') || '<tr><td colspan="7" class="empty">אין הזמנות</td></tr>'}
+    </tbody>${list.length ? `<tfoot><tr><td colspan="4">סה"כ</td><td class="num">${list.reduce((s, a) => s + a.qty, 0)}</td><td class="num">${money(list.reduce((s, a) => s + a.sum, 0))}</td><td></td></tr></tfoot>` : ''}</table></div>`;
+}
+
+function vZimmers() {
+  const list = activeOrders().slice().sort((a, b) => String(a.zimmer).localeCompare(String(b.zimmer), 'he'));
+  const sum = k => list.reduce((s, o) => s + (Number(o[k]) || 0), 0);
+  $('#view').innerHTML = `<p class="lead">סיכום לכל צימר, בהזמנות שלא בוטלו${A.incTest ? ' (כולל הזמנות בדיקה)' : ''}.</p>
+    <div class="tw"><table><thead><tr><th>צימר</th><th>ישוב</th><th>איש קשר</th><th>טלפון</th><th>הזמנה</th><th class="num">סה"כ</th><th class="num">תקציב</th><th class="num">יתרה</th><th class="num">חריגה</th><th>סטטוס</th></tr></thead><tbody>
+    ${list.map(o => `<tr><td><b>${esc(o.zimmer)}</b>${o.test ? ' <span class="pill p-test">בדיקה</span>' : ''}</td><td>${esc(o.town)}</td><td>${esc(o.contact)}</td><td dir="ltr" style="text-align:right">${esc(o.phone)}</td><td class="muted" dir="ltr" style="text-align:right">${esc(o.id)}</td>
+      <td class="num" style="font-weight:800">${money(o.total)}</td><td class="num">${money(o.budget)}</td><td class="num">${o.budget - o.total >= 0 ? money(o.budget - o.total) : '-'}</td>
+      <td class="num">${o.over > 0 ? `<span class="minus">${money(o.over)}</span>` : '-'}</td><td><span class="pill ${STATUS_CLS[o.status] || ''}">${esc(o.status)}</span></td></tr>`).join('') || '<tr><td colspan="10" class="empty">אין הזמנות</td></tr>'}
+    </tbody>${list.length ? `<tfoot><tr><td colspan="5">${list.length} צימרים</td><td class="num">${money(sum('total'))}</td><td class="num">${money(sum('budget'))}</td><td></td><td class="num">${money(sum('over'))}</td><td></td></tr></tfoot>` : ''}</table></div>`;
+}
+
+function movesTable(list) {
+  return `<div class="tw"><table><thead><tr><th>תאריך ושעה</th><th>מי</th><th>סוג</th><th>מוצר</th><th class="num">שינוי</th><th class="num">יתרה אחרי</th><th>הפניה</th><th>הערה</th></tr></thead><tbody>
+    ${list.map(m => `<tr><td style="white-space:nowrap">${esc(m.date)}</td><td>${esc(m.who)}</td><td><span class="pill ${m.type === 'הזמנה' ? 'p-new' : m.type === 'ביטול' ? 'p-inf' : m.type === 'כניסת סחורה' ? 'p-ok' : 'p-mis'}">${esc(m.type)}</span></td>
+      <td><b>${esc(m.id)}</b><div class="muted">${esc(m.sku)}</div></td><td class="num"><span class="${m.change > 0 ? 'plus' : 'minus'}">${m.change > 0 ? '+' : ''}${m.change}</span></td><td class="num">${esc(m.after)}</td>
+      <td class="muted" dir="auto">${esc(m.ref)}</td><td class="muted">${esc(m.note)}</td></tr>`).join('') || '<tr><td colspan="8" class="empty">אין תנועות</td></tr>'}
+    </tbody></table></div>`;
+}
+function vMoves() {
+  const f = A.f, q = f.mq.trim().toLowerCase();
+  const list = D().moves.filter(m => (!f.mtype || m.type === f.mtype) && (!q || [m.id, m.sku, m.who, m.ref, m.note].join(' ').toLowerCase().includes(q)));
+  $('#view').innerHTML = `<div class="toolbar"><input class="inp" placeholder="חיפוש: מוצר, הזמנה, מי..." data-f="mq" value="${esc(f.mq)}">
+    ${[['', 'הכל'], ['הזמנה', 'הזמנה'], ['ביטול', 'ביטול'], ['כניסת סחורה', 'כניסת סחורה'], ['תיקון ידני', 'תיקון ידני']].map(([k, l]) => `<button class="chip ${f.mtype === k ? 'active' : ''}" data-mtype="${esc(k)}">${l}</button>`).join('')}
+    <span class="muted">${list.length} תנועות</span></div>${movesTable(list)}`;
+}
+
+// ---------- מודאלים ----------
+function modal(html) { $('#modalRoot').innerHTML = `<div class="mbg" data-mclose="1"><div class="modal" role="dialog" aria-modal="true">${html}</div></div>`; }
+function closeModal() { $('#modalRoot').innerHTML = ''; }
+function adjModal(id) {
+  const p = D().products.find(x => x.id === id);
+  modal(`<h2>תיקון ידני - ${esc(p.code)} ${esc(p.name)}</h2><p class="lead">יתרה נוכחית: <b>${p.remaining}</b>. התיקון נרשם ביומן התנועות עם שמך והסיבה.</p>
+    <label class="f">יתרה נכונה</label><input class="inp" id="aRem" type="number" min="0" step="1" value="${p.remaining}" inputmode="numeric">
+    <label class="f" style="margin-top:10px">סיבה (חובה)</label><input class="inp" id="aNote" placeholder="למשל: ספירת מלאי, פריט פגום">
+    <div class="acts"><button class="btn btn-primary" id="aBtn">שמירה</button><button class="btn btn-ghost" data-mclose="1">ביטול</button></div>`);
+  $('#aBtn').onclick = async () => {
+    const note = $('#aNote').value.trim();
+    if (note.length < 2) return toast('חובה לכתוב סיבה', true);
+    $('#aBtn').disabled = true;
+    try {
+      const r = await api({ action: 'adjustStock', id, remaining: Number($('#aRem').value), note });
+      if (!r.ok) { $('#aBtn').disabled = false; return toast(r.error, true); }
+      closeModal(); toast(r.unchanged ? 'היתרה לא השתנתה' : `היתרה עודכנה ל-${r.remaining}`); load(true);
+    } catch (e) { $('#aBtn').disabled = false; }
+  };
+}
+function statusModal(id, status, sel) {
+  const o = D().orders.find(x => x.id === id);
+  const cancel = status === 'בוטלה';
+  modal(`<h2>${cancel ? 'ביטול הזמנה' : 'שינוי סטטוס'} ${esc(o.id)}</h2>
+    <p class="lead">${esc(o.zimmer)}, ${esc(o.town)} · ${money(o.total)}</p>
+    ${cancel ? `<div class="panel" style="background:var(--terra-soft);border-color:var(--terra)"><b>הכמויות יחזרו למלאי</b> ויופיעו שוב באתר. אחרי ביטול אי אפשר להחזיר את ההזמנה - הצימר יוכל לשלוח הזמנה חדשה מאותו טלפון.</div>` : `<p>מ-<b>${esc(o.status)}</b> ל-<b>${esc(status)}</b></p>`}
+    <label class="f">הערה ${cancel ? '(מומלץ: למה בוטלה)' : '(לא חובה)'}</label><input class="inp" id="sNote">
+    <div class="acts"><button class="btn ${cancel ? 'btn-danger' : 'btn-primary'}" id="sBtn">${cancel ? 'כן, לבטל ולהחזיר למלאי' : 'שמירה'}</button><button class="btn btn-ghost" data-mclose="1">חזרה</button></div>`);
+  const restore = () => { sel.value = o.status; };
+  $('#modalRoot .mbg').addEventListener('click', e => { if (e.target.dataset.mclose) restore(); });
+  $('#sBtn').onclick = async () => {
+    $('#sBtn').disabled = true;
+    try {
+      const r = await api({ action: 'setOrderStatus', orderId: id, status, note: $('#sNote').value });
+      if (!r.ok) { $('#sBtn').disabled = false; return toast(r.error, true); }
+      closeModal();
+      toast(cancel ? `ההזמנה בוטלה. ${r.returned.reduce((s, x) => s + x.qty, 0)} יחידות חזרו למלאי` : 'הסטטוס עודכן');
+      load(true);
+    } catch (e) { $('#sBtn').disabled = false; }
+  };
+}
+
+// ---------- אירועים ----------
+document.addEventListener('click', async e => {
+  const t = e.target.closest('[data-tab],[data-stock],[data-ost],[data-mtype],[data-recv],[data-adj],[data-resend],[data-mclose],[data-jump]');
+  if (!t) return;
+  const d = t.dataset;
+  if (d.mclose !== undefined && e.target === t) { closeModal(); return; }
+  if (d.tab) { A.tab = d.tab; render(); return; }
+  if (d.jump) { const [tab, flt] = d.jump.split(':'); A.tab = tab; if (tab === 'stock') A.f.stock = flt || 'all'; if (tab === 'orders') A.f.ost = flt || ''; render(); return; }
+  if (d.stock) { A.f.stock = d.stock; vStock(); return; }
+  if (d.ost !== undefined) { A.f.ost = d.ost; vOrders(); return; }
+  if (d.mtype !== undefined) { A.f.mtype = d.mtype; vMoves(); return; }
+  if (d.recv) { A.tab = 'receive'; render(); vReceive(d.recv); $('#rQty').focus(); return; }
+  if (d.adj) { adjModal(d.adj); return; }
+  if (d.resend) {
+    t.disabled = true; t.innerHTML = '<span class="spin" style="border-color:#ccc;border-top-color:#5C6B3A"></span>';
+    try { const r = await api({ action: 'resendEmail', orderId: d.resend }); toast(r.ok ? 'המייל נשלח' : 'השליחה נכשלה: ' + r.error, !r.ok); load(true); }
+    catch (err) { t.disabled = false; t.textContent = 'שלח שוב'; }
+  }
+});
+document.addEventListener('input', e => {
+  const k = e.target.dataset.f; if (!k) return;
+  A.f[k] = e.target.value;
+  const pos = e.target.selectionStart;
+  ({ q: vStock, cat: vStock, oq: vOrders, mq: vMoves })[k]();
+  const el = document.querySelector(`[data-f="${k}"]`); if (el && el.tagName === 'INPUT') { el.focus(); el.setSelectionRange(pos, pos); }
+});
+document.addEventListener('change', e => {
+  const id = e.target.dataset.status; if (!id) return;
+  statusModal(id, e.target.value, e.target);
+});
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('#modalRoot').innerHTML) { closeModal(); render(); } });
+
+// ---------- הפעלה ----------
+A.token = ss.get('mh-admin-token') || '';
+A.name = ss.get('mh-admin-name') || '';
+if (A.token) enter(); else showLogin();
+</script>
+</body>
+</html>
