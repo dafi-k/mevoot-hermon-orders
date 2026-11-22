@@ -153,7 +153,7 @@ async function toWebp(srcRel, outName, report) {
   // לוגו
   const logoSrc = path.resolve(SRC_DIR, '..', 'GMA', 'gma-site', 'client-logos', 'Logo contrast.png');
   if (fs.existsSync(logoSrc)) {
-    await sharp(logoSrc).resize({ width: 600, withoutEnlargement: true }).png().toFile(path.join(PIC, 'logo-contrast.png'));
+    await sharp(logoSrc).trim({ threshold: 20 }).resize({ height: 120, withoutEnlargement: true }).png().toFile(path.join(PIC, 'logo-contrast.png'));
   } else report.push('!! לוגו CONTRAST לא נמצא');
 
   // פלט

@@ -184,6 +184,11 @@ body.has-bar{padding-bottom:96px}
 .modal-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
 .xbtn{background:none;border:0;font-size:30px;line-height:1;cursor:pointer;color:var(--muted);width:44px;height:44px}
 .dialog{max-width:420px;text-align:center}
+.spinner{width:46px;height:46px;margin:6px auto 14px;border-radius:50%;border:5px solid var(--olive-soft);border-top-color:var(--olive);animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.okmark{width:72px;height:72px;margin:4px auto 8px;border-radius:50%;background:var(--olive);color:#fff;font-size:40px;font-weight:800;display:flex;align-items:center;justify-content:center;animation:pop .45s ease both}
+@keyframes pop{0%{transform:scale(.4);opacity:0}70%{transform:scale(1.08)}100%{transform:scale(1);opacity:1}}
+.banner .btn{padding:10px 16px;font-size:15px}
 .dialog .actions{justify-content:center}
 .step-t{font-weight:800;margin:14px 0 8px;color:var(--olive-dark)}
 .opts{display:grid;gap:8px;grid-template-columns:repeat(3,minmax(0,1fr))}
@@ -215,7 +220,7 @@ footer{text-align:center;color:var(--muted);font-size:13px;padding:20px 16px 30p
 <body>
 
 <header class="topbar">
-  <img src="pic/logo-contrast.png" alt="CONTRAST" width="120" height="30">
+  <img src="pic/logo-contrast.png" alt="CONTRAST" width="144" height="30">
   <div class="ttl">
     <div class="title">נבחרת צימרי מבואות החרמון</div>
     <div class="sub"><span class="subtxt">הזמנת ריהוט ואבזור</span> <span id="stockPill" class="stock-pill">בודק מלאי...</span></div>
@@ -301,6 +306,25 @@ footer{text-align:center;color:var(--muted);font-size:13px;padding:20px 16px 30p
     </div>
   </section>
 
+  <!-- מסך 5: אישור -->
+  <section class="screen" id="s5">
+    <div class="panel" style="text-align:center">
+      <div class="okmark" aria-hidden="true">✓</div>
+      <h1>ההזמנה נשלחה!</h1>
+      <div class="banner err hidden" id="okTest" style="justify-content:center">הזמנת בדיקה</div>
+      <p class="lead">מספר הזמנה: <b id="okId" dir="ltr"></b></p>
+      <div id="okSummary"></div>
+      <div id="okMail" style="margin-top:14px"></div>
+      <p class="cust" style="margin-top:12px">קובצי Excel ו-PDF של ההזמנה ירדו למכשיר. אפשר להוריד אותם שוב:</p>
+      <div class="actions" style="justify-content:center;margin-top:6px">
+        <button class="btn btn-ghost" id="dlX">הורדת Excel</button>
+        <button class="btn btn-ghost" id="dlP">הורדת PDF</button>
+      </div>
+      <p class="cust" style="margin-top:14px">פרטי ההזמנה כבר נמחקו מהמכשיר. לשינויים בהזמנה יש לפנות לצוות.</p>
+      <button class="btn btn-primary" id="newCust" style="margin-top:8px;width:100%;max-width:360px">סיום - לקוח חדש</button>
+    </div>
+  </section>
+
 </main>
 
 <footer>CONTRAST · הג'וינט · מועצה אזורית מבואות החרמון</footer>
@@ -345,8 +369,18 @@ const S = {
   live: false,       // true רק אחרי שהמלאי העדכני הגיע מהשרת
   liveErr: '', loading: false,
   cart: [],          // [{lid, type:'item', id, qty}] או [{lid, type:'table', leg, top, qty}]
-  customer: {}, screen: 1, tab: null, shortages: {}
+  customer: {}, screen: 1, tab: null, shortages: {},
+  sending: false, sumMsg: '', sumKind: '', lastOrder: null, idleTimer: null,
+  testCode: ''       // הזמנות בדיקה: האתר נפתח עם ?test=<קוד מהגיליון>
 };
+// קוד בדיקה מהכתובת (נשמר ללשונית הזו בלבד)
+(function () {
+  try {
+    const q = new URLSearchParams(location.search).get('test');
+    if (q) sessionStorage.setItem('mh-test', q.trim());
+    S.testCode = sessionStorage.getItem('mh-test') || '';
+  } catch (e) {}
+})();
 
 // =====================================================================
 // כלי עזר
@@ -515,7 +549,8 @@ function saveState() {
 // מסכים
 // =====================================================================
 function go(n) {
-  if (n >= 2 && !validateReg(n === 2)) { n = 1; }
+  if (n >= 2 && n <= 4 && !validateReg(n === 2)) { n = 1; }
+  if (n === 4) loadLibs(); // מכינים מראש את ספריות ה-Excel וה-PDF
   S.screen = n;
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   $('#s' + n).classList.add('active');
@@ -525,7 +560,7 @@ function go(n) {
   saveState();
   renderAll();
   window.scrollTo({ top: 0, behavior: 'smooth' });
-  if (n >= 3 && S.live) loadLive(true); // רענון מלאי בכניסה לקטלוג ולסיכום
+  if ((n === 3 || n === 4) && S.live) loadLive(true); // רענון מלאי בכניסה לקטלוג ולסיכום
 }
 
 // ---------- רישום ----------
@@ -572,6 +607,8 @@ function updateStockUI() {
     b.innerHTML = `<div class="banner err"><span>${esc(S.liveErr)}. אפשר לעיין בקטלוג, אבל הוספה לעגלה תיפתח רק אחרי שהמלאי יתעדכן.</span><button class="btn btn-ghost" onclick="loadLive()">נסו שוב</button></div>`;
   } else if (!S.live) {
     b.innerHTML = `<div class="banner info"><span>בודקים את המלאי העדכני... רגע אחד.</span></div>`;
+  } else if (S.testCode) {
+    b.innerHTML = `<div class="banner info"><span><b>מצב בדיקה:</b> הזמנות יישמרו כהזמנות בדיקה (TEST) ויורידו מלאי אמיתי. ביטול שלהן מחזיר את המלאי.</span></div>`;
   } else if (!S.open) {
     b.innerHTML = `<div class="banner err"><span>גרסת בדיקה - שליחת הזמנות סגורה כרגע. אפשר לעיין בקטלוג ולבנות עגלה.</span></div>`;
   } else b.innerHTML = '';
@@ -622,14 +659,20 @@ function updateSticky() {
 }
 
 // ---------- לקוח חדש: ניקוי המכשיר (גם אחרי שליחה מוצלחת) ----------
-function resetAll() {
-  S.customer = {}; S.cart = []; S.shortages = {}; S.tab = null; lastCentered = null; TM = null;
+// מוחק מהמכשיר את העגלה ואת פרטי הצימר (בלי לעבור מסך)
+function clearDevice() {
+  S.customer = {}; S.cart = []; S.shortages = {}; S.sumMsg = ''; S.tab = null; lastCentered = null; TM = null;
   try { localStorage.removeItem(CONFIG.STORE); } catch (e) {}
   FIELDS.forEach(([, id]) => { const el = $('#' + id); el.value = ''; el.classList.remove('invalid'); el.nextElementSibling.textContent = ''; });
   $('#f-day').classList.remove('invalid'); $('#f-day').nextElementSibling.textContent = '';
   $('#overOk').checked = false;
   $('#modalRoot').innerHTML = ''; $('#dialogRoot').innerHTML = '';
   fillReg();
+}
+function resetAll() {
+  clearDevice();
+  S.lastOrder = null;
+  clearTimeout(S.idleTimer);
   go(1);
 }
 function askReset() {
@@ -795,10 +838,15 @@ function renderSummary() {
     ${over ? `<div class="over-txt"><b>מעל התקציב - לתשלום על ידי בעל/ת הצימר</b><b>${money(over)}</b></div>` : `<div><span>יתרת תקציב</span><span>${money(S.budget - total)}</span></div>`}`;
   $('#overCheck').classList.toggle('hidden', !over);
   $('#overAmt').textContent = money(over);
-  const ready = S.live && S.open && S.cart.length && (!over || $('#overOk').checked);
+  const canOrder = S.open || !!S.testCode;
+  const ready = S.live && canOrder && !S.sending && S.cart.length && (!over || $('#overOk').checked);
   $('#sendBtn').disabled = !ready;
-  $('#sendBtn').textContent = !S.live ? 'בודק מלאי...' : 'שליחת ההזמנה';
-  $('#sumBanner').innerHTML = !S.open ? '<div class="banner err">שליחת הזמנות סגורה כרגע (גרסת בדיקה).</div>' : '';
+  $('#sendBtn').textContent = S.sending ? 'שולחים...' : !S.live ? 'בודק מלאי...' : S.testCode ? 'שליחת הזמנת בדיקה' : 'שליחת ההזמנה';
+  if (S.sumKind === 'shortage' && !Object.keys(S.shortages).length) S.sumMsg = '';
+  let banner = S.sumMsg || '';
+  if (!banner && !canOrder) banner = '<div class="banner err">שליחת הזמנות סגורה כרגע (גרסת בדיקה).</div>';
+  if (!banner && S.testCode) banner = '<div class="banner info"><b>מצב בדיקה</b> - ההזמנה תישמר כהזמנת בדיקה (TEST).</div>';
+  $('#sumBanner').innerHTML = banner;
 }
 
 function renderAll() {
@@ -809,9 +857,302 @@ function renderAll() {
   if (TM) renderTable();
 }
 
-// ---------- שליחה (שלב 4) ----------
-function submitOrder() {
-  toast('השליחה תופעל בשלב הבא של הבנייה (שלב 4).');
+// =====================================================================
+// שליחת הזמנה (שלב 4)
+// השרת מקבל רק מזהים וכמויות, ומחשב מחירים וסכומים לפי הגיליון.
+// =====================================================================
+async function api(body, timeoutMs) {
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), timeoutMs || 45000);
+  try {
+    // text/plain = בקשה "פשוטה" בלי preflight, והתשובה קריאה (בלי no-cors)
+    const r = await fetch(CONFIG.API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(body), signal: ctl.signal });
+    return await r.json();
+  } finally { clearTimeout(timer); }
+}
+
+// ספריות Excel / PDF - נטענות פעם אחת, כשנכנסים לסיכום
+const LIBS = [
+  'https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js',
+  'https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js',
+  'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js'
+];
+let libsPromise = null;
+function loadLibs() {
+  if (!libsPromise) {
+    libsPromise = Promise.all(LIBS.map(src => new Promise((res, rej) => {
+      const s = document.createElement('script'); s.src = src; s.async = true;
+      s.onload = res; s.onerror = () => rej(new Error('טעינת ספרייה נכשלה'));
+      document.head.appendChild(s);
+    }))).catch(e => { libsPromise = null; throw e; });
+  }
+  return libsPromise;
+}
+
+function showBusy(msg) {
+  $('#dialogRoot').innerHTML = `<div class="modal-bg busy-bg"><div class="modal dialog" role="alertdialog" aria-live="assertive"><div class="spinner"></div><h2>${esc(msg)}</h2><p class="lead">לא לסגור את הדף.</p></div></div>`;
+}
+function hideBusy() { $('#dialogRoot').innerHTML = ''; }
+
+function setSumMsg(kind, html) { S.sumKind = kind; S.sumMsg = html; renderSummary(); window.scrollTo({ top: 0, behavior: 'smooth' }); }
+
+async function submitOrder() {
+  if (S.sending || !S.live || !S.cart.length) return;
+  S.sending = true; S.sumMsg = ''; S.shortages = {};
+  renderSummary();
+  showBusy('שולחים את ההזמנה ובודקים מלאי...');
+  const body = {
+    action: 'submitOrder',
+    customer: S.customer,
+    lines: S.cart.map(l => l.type === 'table' ? { type: 'table', leg: l.leg, top: l.top, qty: l.qty, lid: l.lid } : { type: 'item', id: l.id, qty: l.qty, lid: l.lid }),
+    overOk: $('#overOk').checked,
+    testCode: S.testCode || ''
+  };
+  let res;
+  try {
+    res = await api(body, 60000);
+  } catch (e) {
+    S.sending = false; hideBusy();
+    setSumMsg('net', `<div class="banner err"><span><b>לא התקבלה תשובה מהשרת.</b> ייתכן שהחיבור לאינטרנט נקטע. אפשר ללחוץ שוב על "שליחה". אם ההזמנה כבר נקלטה, תופיע הודעה על כך ולא תיווצר הזמנה כפולה.</span></div>`);
+    return;
+  }
+  if (!res || !res.ok) { S.sending = false; hideBusy(); handleSubmitFail(res || {}); return; }
+  await onOrderSaved(res);
+}
+
+function handleSubmitFail(res) {
+  const err = esc(res.error || 'שגיאה לא צפויה');
+  if (res.code === 'shortage') {
+    // מעדכנים את המלאי המקומי לפי השרת, ומסמנים בדיוק אילו שורות חסרות (בלי להציג מספרים)
+    Object.entries(res.stock || {}).forEach(([id, st]) => { if (S.byId[id]) S.byId[id].stock = st; });
+    const short = new Set((res.shortages || []).map(x => x.id));
+    const names = [];
+    S.cart.forEach(l => {
+      const ids = l.type === 'table' ? [l.leg, l.top] : [l.id];
+      if (!ids.some(id => short.has(id))) return;
+      const max = maxForLine(l);
+      S.shortages[l.lid] = max <= 0 ? `${OUT_MSG} - יש להסיר את הפריט` : 'הכמות שביקשת כבר לא זמינה במלאי';
+      names.push(lineTitle(l));
+    });
+    setSumMsg('shortage', `<div class="banner err"><span><b>חלק מהפריטים כבר לא זמינים בכמות שביקשת</b> (מישהו אחר הזמין אותם בינתיים): ${esc(names.join(' · '))}. הפריטים מסומנים באדום למטה.</span>
+      <button class="btn btn-primary" data-fixshort="1">עדכון לכמות המקסימלית הזמינה</button></div>`);
+    return;
+  }
+  if (res.code === 'busy') { setSumMsg('busy', `<div class="banner err"><span><b>${err}</b> ההזמנה עדיין לא נשלחה והעגלה שמורה.</span></div>`); return; }
+  if (res.code === 'duplicate') {
+    const msg = S.sumKind === 'net' ? 'נראה שההזמנה כבר נקלטה בשליחה הקודמת (התשובה מהשרת לא הגיעה). אין צורך לשלוח שוב - הצוות ישלח אישור.' : res.error;
+    setSumMsg('dup', `<div class="banner err"><span><b>${esc(msg)}</b></span></div>`); return;
+  }
+  if (res.code === 'overConfirm') { $('#overOk').checked = false; setSumMsg('over', `<div class="banner err"><span>${err}</span></div>`); return; }
+  setSumMsg('err', `<div class="banner err"><span><b>ההזמנה לא נשלחה:</b> ${err}</span></div>`);
+}
+
+async function onOrderSaved(res) {
+  // ההזמנה נשמרה בשרת. מנקים את המכשיר מיד (טאבלט משותף), ושומרים בזיכרון רק את מה שצריך להורדות.
+  const order = { ...res, customer: { ...res.customer } };
+  S.lastOrder = order;
+  clearDevice();
+  S.sending = false;
+  hideBusy();
+  go(5);
+  renderSuccess();
+  loadLive(true);
+  S.idleTimer = setTimeout(() => { if (S.screen === 5) resetAll(); }, 10 * 60 * 1000); // חזרה אוטומטית אחרי 10 דקות
+
+  // קבצים
+  try {
+    await loadLibs();
+    order.xlsx = await buildXlsx(order);
+    download(order.xlsx.blob, order.xlsx.name);
+    order.files = 'xlsx';
+  } catch (e) { order.filesErr = 'יצירת קובץ ה-Excel נכשלה'; }
+  try {
+    order.pdf = await buildPdf(order);
+    download(order.pdf.blob, order.pdf.name);
+  } catch (e) { order.filesErr = (order.filesErr ? order.filesErr + ' · ' : '') + 'יצירת קובץ ה-PDF נכשלה'; }
+  order.mail = 'sending';
+  renderSuccess();
+
+  // מייל - בקשה נפרדת. כשל כאן לא מבטל את ההזמנה.
+  try {
+    const m = await api({ action: 'sendOrderEmail', orderId: order.orderId, phone: order.customer.phone,
+      xlsxBase64: order.xlsx ? order.xlsx.b64 : '', xlsxName: order.xlsx ? order.xlsx.name : '' }, 60000);
+    order.mail = m && m.ok && m.emailed ? 'sent' : 'failed';
+  } catch (e) { order.mail = 'failed'; }
+  renderSuccess();
+}
+
+function renderSuccess() {
+  const o = S.lastOrder;
+  if (!o) return;
+  const c = o.customer;
+  $('#okId').textContent = o.orderId;
+  $('#okTest').classList.toggle('hidden', !o.test);
+  $('#okSummary').innerHTML = `<div class="totals" style="text-align:right">
+      <div><span>צימר</span><b>${esc(c.zimmer)}, ${esc(c.town)}</b></div>
+      <div><span>פריטים</span><span>${o.lines.reduce((s, l) => s + l.qty, 0)}</span></div>
+      <div class="grand"><span>סה"כ הזמנה</span><span>${money(o.total)}</span></div>
+      ${o.over > 0 ? `<div class="over-txt"><b>מעל התקציב - לתשלום על ידי בעל/ת הצימר</b><b>${money(o.over)}</b></div>` : `<div><span>יתרת תקציב</span><span>${money(o.budget - o.total)}</span></div>`}
+    </div>`;
+  const mail = o.mail === 'sent' ? `✓ אישור נשלח במייל ל-${esc(c.email)}`
+    : o.mail === 'failed' ? 'המייל לא נשלח כרגע. ההזמנה נקלטה, והצוות ישלח את האישור בהמשך.'
+    : o.mail === 'sending' ? 'שולחים אישור במייל...' : 'מכינים את הקבצים...';
+  $('#okMail').innerHTML = `<div class="note ${o.mail === 'failed' ? 'terra' : ''}">${mail}</div>` +
+    (o.filesErr ? `<div class="note terra" style="margin-top:8px">${esc(o.filesErr)}. אפשר לנסות שוב בכפתורים למטה.</div>` : '');
+  $('#dlX').disabled = !o.xlsx && o.mail !== 'sent' && o.mail !== 'failed';
+  $('#dlP').disabled = !o.pdf && o.mail !== 'sent' && o.mail !== 'failed';
+}
+
+function download(blob, name) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
+}
+const fileBase = o => `הזמנה_${o.orderId}_${o.customer.zimmer}`.replace(/[\\\/:*?"<>|]/g, '_').slice(0, 80);
+
+// ---------- Excel עם תמונות מוקטנות (כמו ב-GLOW UP) ----------
+// תמונה ממוזערת 80×60 כ-JPEG דרך Canvas (Excel לא תומך ב-webp)
+async function makeThumb(file) {
+  if (!file) return null;
+  try {
+    const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), 5000);
+    const r = await fetch('pic/' + file, { signal: ctl.signal }); clearTimeout(t);
+    if (!r.ok) return null;
+    const blob = await r.blob();
+    return await new Promise(res => {
+      const im = new Image(), u = URL.createObjectURL(blob);
+      im.onload = () => {
+        URL.revokeObjectURL(u);
+        const cv = document.createElement('canvas'); cv.width = 160; cv.height = 120;
+        const g = cv.getContext('2d'), k = Math.min(160 / im.width, 120 / im.height);
+        g.fillStyle = '#fff'; g.fillRect(0, 0, 160, 120);
+        g.drawImage(im, (160 - im.width * k) / 2, (120 - im.height * k) / 2, im.width * k, im.height * k);
+        res(cv.toDataURL('image/jpeg', 0.8).split(',')[1]);
+      };
+      im.onerror = () => { URL.revokeObjectURL(u); res(null); };
+      im.src = u;
+    });
+  } catch (e) { return null; }
+}
+
+async function buildXlsx(o) {
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet('הזמנה', { views: [{ rightToLeft: true }], pageSetup: { orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0 } });
+  ws.columns = [{ width: 12 }, { width: 14 }, { width: 22 }, { width: 30 }, { width: 14 }, { width: 40 }, { width: 8 }, { width: 13 }, { width: 13 }];
+  const OLIVE = 'FF5C6B3A', CREAM = 'FFF7F3EA', BORDER = 'FFE6DDC8';
+  const title = ws.addRow([`נבחרת צימרי מבואות החרמון - הזמנה ${o.orderId}${o.test ? ' (בדיקה)' : ''}`]);
+  ws.mergeCells(title.number, 1, title.number, 9);
+  title.font = { bold: true, size: 15, color: { argb: OLIVE } }; title.height = 26;
+  const c = o.customer;
+  [['שם הצימר', `${c.zimmer}, ${c.town}`], ['איש קשר', c.contact], ['טלפון', c.phone], ['מייל', c.email],
+   ['כתובת לאספקה', c.address], ['הגעה לאולם', DAYS[c.day] || c.day], ['תאריך הזמנה', o.date]].forEach(([k, v]) => {
+    const r = ws.addRow([k, v]); r.getCell(1).font = { bold: true, color: { argb: 'FF6E6A5E' } };
+    ws.mergeCells(r.number, 2, r.number, 5);
+  });
+  ws.addRow([]);
+  const hdr = ws.addRow(['תמונה', 'קוד', 'מק"ט', 'פריט', 'צבע', 'פירוט', 'כמות', 'מחיר יחידה', 'סה"כ']);
+  hdr.height = 22;
+  hdr.eachCell(cell => {
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: OLIVE } };
+    cell.font = { color: { argb: 'FFFFFFFF' }, bold: true };
+    cell.alignment = { horizontal: 'right', vertical: 'middle' };
+  });
+  const thumbs = await Promise.all(o.lines.map(l => makeThumb(l.img)));
+  o.lines.forEach((l, i) => {
+    const r = ws.addRow(['', l.code, l.sku, l.name, l.color || '', l.detail || '', l.qty, l.price, l.subtotal]);
+    r.height = 58;
+    r.eachCell({ includeEmpty: true }, (cell, n) => {
+      cell.alignment = { horizontal: n === 7 ? 'center' : 'right', vertical: 'middle', wrapText: n === 6 || n === 4 || n === 3 };
+      cell.border = { bottom: { style: 'thin', color: { argb: BORDER } } };
+      if (n >= 8) cell.numFmt = '"₪"#,##0';
+    });
+    if (thumbs[i]) {
+      const id = wb.addImage({ base64: thumbs[i], extension: 'jpeg' });
+      ws.addImage(id, { tl: { col: 0, row: r.number - 1, nativeColOff: 3 * 9525, nativeRowOff: 3 * 9525 }, ext: { width: 70, height: 52 }, editAs: 'oneCell' });
+    }
+  });
+  ws.addRow([]);
+  const tot = (label, val, color) => {
+    const r = ws.addRow(['', '', '', '', '', '', '', label, val]);
+    r.getCell(8).font = r.getCell(9).font = { bold: true, color: { argb: color || 'FF2F3A26' } };
+    r.getCell(9).numFmt = '"₪"#,##0';
+    r.getCell(8).alignment = r.getCell(9).alignment = { horizontal: 'right' };
+  };
+  tot('סה"כ הזמנה:', o.total);
+  tot('תקציב:', o.budget);
+  if (o.over > 0) tot('לתשלום ע"י הצימר:', o.over, 'FFB23A2E'); else tot('יתרת תקציב:', o.budget - o.total, OLIVE);
+  const note = ws.addRow(['הובלה והרכבה כלולות בתוכנית. לשינויים בהזמנה יש לפנות לצוות.']);
+  ws.mergeCells(note.number, 1, note.number, 9);
+  note.font = { italic: true, color: { argb: 'FF6E6A5E' } };
+  const buf = await wb.xlsx.writeBuffer();
+  const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  const b64 = await new Promise(res => { const fr = new FileReader(); fr.onloadend = () => res(fr.result.split(',')[1]); fr.readAsDataURL(blob); });
+  return { blob, b64, name: fileBase(o) + '.xlsx' };
+}
+
+// ---------- PDF בעברית ----------
+// הפונטים של jsPDF לא תומכים בעברית ובכיווניות, ולכן מרנדרים דף HTML דרך html2canvas (כמו ב-GLOW UP)
+async function buildPdf(o) {
+  const c = o.customer;
+  const td = 'padding:7px 8px;border-bottom:1px solid #E6DDC8;font-size:12px;vertical-align:middle;';
+  const rows = o.lines.map(l => `<tr>
+      <td style="${td}width:62px">${l.img ? `<img src="pic/${esc(l.img)}" style="width:54px;height:54px;object-fit:contain;background:#fff">` : ''}</td>
+      <td style="${td}"><b>${esc(l.name)}</b>${l.color ? ' · ' + esc(l.color) : ''}<br><span style="color:#6E6A5E;font-size:11px">${esc(l.code)}${l.detail ? ' · ' + esc(l.detail) : ''}</span></td>
+      <td style="${td}text-align:center">${l.qty}</td>
+      <td style="${td}">${money(l.price)}</td>
+      <td style="${td}font-weight:700">${money(l.subtotal)}</td></tr>`).join('');
+  const info = (k, v) => `<tr><td style="padding:2px 0;color:#6E6A5E;width:105px">${k}</td><td style="padding:2px 0;font-weight:700">${esc(v)}</td></tr>`;
+  const el = document.createElement('div');
+  el.setAttribute('dir', 'rtl');
+  el.style.cssText = "position:fixed;top:0;left:-10000px;width:794px;padding:30px;background:#fff;font-family:'Assistant',Arial,sans-serif;color:#2F3A26;";
+  el.innerHTML = `
+    ${o.test ? '<div style="background:#F8E4DA;color:#B23A2E;padding:8px 12px;border-radius:8px;margin-bottom:10px;font-weight:700;text-align:center">הזמנת בדיקה</div>' : ''}
+    <div style="background:#5C6B3A;color:#fff;padding:18px 20px;border-radius:10px;display:flex;justify-content:space-between;align-items:center">
+      <div><div style="font-size:22px;font-weight:800">נבחרת צימרי מבואות החרמון</div><div style="font-size:14px;margin-top:2px">הזמנת ריהוט ${esc(o.orderId)}</div></div>
+      <img src="pic/logo-contrast.png" style="height:26px;background:#fff;padding:6px 10px;border-radius:6px">
+    </div>
+    <table style="margin:14px 0;font-size:13px;border-collapse:collapse">
+      ${info('צימר:', c.zimmer + ', ' + c.town)}${info('איש קשר:', c.contact)}${info('טלפון:', c.phone)}${info('מייל:', c.email)}
+      ${info('כתובת לאספקה:', c.address)}${info('הגעה לאולם:', DAYS[c.day] || c.day)}${info('תאריך הזמנה:', o.date)}
+    </table>
+    <table style="width:100%;border-collapse:collapse;border:1px solid #E6DDC8">
+      <thead><tr style="background:#5C6B3A;color:#fff;font-size:12px"><th style="padding:8px"></th><th style="padding:8px;text-align:right">פריט</th><th style="padding:8px">כמות</th><th style="padding:8px;text-align:right">מחיר</th><th style="padding:8px;text-align:right">סה"כ</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <div style="margin-top:14px;padding:12px 16px;border:1px solid #E6DDC8;border-radius:10px;font-size:14px">
+      <div style="font-size:17px;font-weight:800">סה"כ הזמנה: ${money(o.total)}</div>
+      <div style="color:#6E6A5E">תקציב: ${money(o.budget)}</div>
+      ${o.over > 0 ? `<div style="color:#B23A2E;font-weight:700;margin-top:4px">מעל התקציב - לתשלום על ידי בעל/ת הצימר: ${money(o.over)}</div>` : `<div style="color:#5C6B3A;margin-top:4px">יתרת תקציב: ${money(o.budget - o.total)}</div>`}
+    </div>
+    <div style="margin-top:10px;font-size:12px;color:#6E6A5E;text-align:center">הובלה והרכבה כלולות בתוכנית. לשינויים בהזמנה יש לפנות לצוות.</div>`;
+  document.body.appendChild(el);
+  try {
+    await Promise.all([...el.querySelectorAll('img')].map(im => im.complete ? 0 : new Promise(r => { im.onload = im.onerror = r; })));
+    const canvas = await html2canvas(el, { scale: 2, backgroundColor: '#ffffff', useCORS: true });
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4', compress: true });
+    const pageW = 210, pageH = 297, margin = 8, imgW = pageW - margin * 2;
+    const pxPerMm = canvas.width / imgW, sliceH = Math.floor((pageH - margin * 2) * pxPerMm);
+    for (let off = 0, pg = 0; off < canvas.height; off += sliceH, pg++) {
+      const h = Math.min(sliceH, canvas.height - off);
+      const s = document.createElement('canvas'); s.width = canvas.width; s.height = h;
+      s.getContext('2d').drawImage(canvas, 0, off, canvas.width, h, 0, 0, canvas.width, h);
+      if (pg > 0) doc.addPage();
+      doc.addImage(s.toDataURL('image/jpeg', 0.9), 'JPEG', margin, margin, imgW, h / pxPerMm);
+    }
+    return { blob: doc.output('blob'), name: fileBase(o) + '.pdf' };
+  } finally { el.remove(); }
+}
+
+async function redownload(kind) {
+  const o = S.lastOrder; if (!o) return;
+  try {
+    await loadLibs();
+    if (kind === 'x') { o.xlsx = o.xlsx || await buildXlsx(o); download(o.xlsx.blob, o.xlsx.name); }
+    else { o.pdf = o.pdf || await buildPdf(o); download(o.pdf.blob, o.pdf.name); }
+    o.filesErr = ''; renderSuccess();
+  } catch (e) { toast('ההורדה נכשלה. נסו שוב.', true); }
 }
 
 // =====================================================================
@@ -822,6 +1163,7 @@ document.addEventListener('click', e => {
   if (!t) return;
   const d = t.dataset;
   if (d.dclose && e.target === t) { $('#dialogRoot').innerHTML = ''; return; }
+  if (d.fixshort) { clampCart(); S.shortages = {}; S.sumMsg = ''; renderSummary(); toast('העגלה עודכנה לפי המלאי הזמין'); return; }
   if (d.reset) { resetAll(); toast('אפשר להתחיל הזמנה חדשה'); return; }
   if (d.scroll) { const tabs = $('#tabs'); tabs.scrollBy({ left: Number(d.scroll) * tabs.clientWidth * 0.7, behavior: 'smooth' }); return; }
   if (d.close && (e.target === t)) { TM = null; renderTable(); return; }
@@ -854,16 +1196,19 @@ document.addEventListener('click', e => {
 });
 $('#toGuide').onclick = () => { readReg(); if (validateReg(true)) go(2); };
 $('#toSummary').onclick = () => go(4);
-$('#restartBtn').onclick = askReset;
+$('#restartBtn').onclick = () => { if (!S.sending) askReset(); };
 $('#tabs').addEventListener('scroll', updateEdges, { passive: true });
 window.addEventListener('scroll', updateSticky, { passive: true });
 window.addEventListener('resize', () => { updateSticky(); updateEdges(); centerActiveTab(true); });
 $('#sendBtn').onclick = submitOrder;
+$('#dlX').onclick = () => redownload('x');
+$('#dlP').onclick = () => redownload('p');
+$('#newCust').onclick = resetAll;
 $('#overOk').onchange = renderSummary;
 document.querySelectorAll('#regForm .inp').forEach(el => el.addEventListener('input', () => {
   el.classList.remove('invalid'); el.nextElementSibling.textContent = ''; readReg(); saveState();
 }));
-document.addEventListener('keydown', e => { if (e.key === 'Escape') { document.querySelectorAll('.zoom').forEach(z => z.remove()); $('#dialogRoot').innerHTML = ''; if (TM) { TM = null; renderTable(); } } });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') { document.querySelectorAll('.zoom').forEach(z => z.remove()); if (!S.sending) $('#dialogRoot').innerHTML = ''; if (TM) { TM = null; renderTable(); } } });
 document.addEventListener('visibilitychange', () => { if (!document.hidden && S.screen >= 3) loadLive(true); });
 
 // =====================================================================
