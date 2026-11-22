@@ -101,6 +101,7 @@ const T = (leg, top, qty) => ({ lid: Math.floor(Math.random() * 1e9), type: 'tab
   ok(!st.stored && st.cart === 0 && st.cust === 0 && st.field === '', 'אחרי הצלחה: העגלה ופרטי הרישום נמחקו מהמכשיר');
   await page.click('#newCust');
   ok(await page.locator('#s1.active').isVisible(), '"סיום - לקוח חדש" חוזר לרישום');
+  ok(await page.evaluate(() => S.testCode === '' && !sessionStorage.getItem('mh-test')), '"לקוח חדש" מבטל גם את מצב הבדיקה במכשיר');
   ok(errors.length === 0, 'אין שגיאות JavaScript' + (errors.length ? ': ' + errors.join(' | ') : ''));
   await ctx.close();
 

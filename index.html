@@ -610,7 +610,7 @@ function updateStockUI() {
   } else if (S.testCode) {
     b.innerHTML = `<div class="banner info"><span><b>מצב בדיקה:</b> הזמנות יישמרו כהזמנות בדיקה (TEST) ויורידו מלאי אמיתי. ביטול שלהן מחזיר את המלאי.</span></div>`;
   } else if (!S.open) {
-    b.innerHTML = `<div class="banner err"><span>גרסת בדיקה - שליחת הזמנות סגורה כרגע. אפשר לעיין בקטלוג ולבנות עגלה.</span></div>`;
+    b.innerHTML = `<div class="banner err"><span>שליחת הזמנות סגורה כרגע. אפשר לעיין בקטלוג ולבנות עגלה.</span></div>`;
   } else b.innerHTML = '';
 }
 function availBadge(p) {
@@ -672,6 +672,9 @@ function clearDevice() {
 function resetAll() {
   clearDevice();
   S.lastOrder = null;
+  // לקוח חדש מנקה גם מצב בדיקה (שטאבלט באולם לא יישאר תקוע ב"מצב בדיקה")
+  S.testCode = '';
+  try { sessionStorage.removeItem('mh-test'); } catch (e) {}
   clearTimeout(S.idleTimer);
   go(1);
 }
@@ -844,7 +847,7 @@ function renderSummary() {
   $('#sendBtn').textContent = S.sending ? 'שולחים...' : !S.live ? 'בודק מלאי...' : S.testCode ? 'שליחת הזמנת בדיקה' : 'שליחת ההזמנה';
   if (S.sumKind === 'shortage' && !Object.keys(S.shortages).length) S.sumMsg = '';
   let banner = S.sumMsg || '';
-  if (!banner && !canOrder) banner = '<div class="banner err">שליחת הזמנות סגורה כרגע (גרסת בדיקה).</div>';
+  if (!banner && !canOrder) banner = '<div class="banner err">שליחת הזמנות סגורה כרגע.</div>';
   if (!banner && S.testCode) banner = '<div class="banner info"><b>מצב בדיקה</b> - ההזמנה תישמר כהזמנת בדיקה (TEST).</div>';
   $('#sumBanner').innerHTML = banner;
 }
