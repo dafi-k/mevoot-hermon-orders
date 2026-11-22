@@ -4,7 +4,7 @@ const { chromium } = require('playwright-core');
 const path = require('path');
 const OUT = process.argv[2] || path.join(__dirname, 'shots');
 require('fs').mkdirSync(OUT, { recursive: true });
-const URL = 'http://localhost:8080/';
+const URL = process.env.SITE_URL || 'http://localhost:8080/';
 let fails = 0;
 const ok = (cond, msg) => { console.log((cond ? 'PASS ' : 'FAIL ') + msg); if (!cond) fails++; };
 const shot = async (page, name, full) => { await page.waitForTimeout(900); await page.screenshot({ path: path.join(OUT, name + '.png'), fullPage: !!full }); };
