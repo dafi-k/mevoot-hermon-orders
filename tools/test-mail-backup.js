@@ -21,6 +21,17 @@ async function openXlsx(blob) {
   await wb.xlsx.load(buf);
   return { wb, ws: wb.worksheets[0], size: buf.length };
 }
+// תמונות בתוך המייל: כל src הוא cid: שקיים ב-inlineImages כ-JPEG, ואין קישור חיצוני לתמונה
+const inlineCheck = (m, title) => {
+  const srcs = [...m.htmlBody.matchAll(/<img[^>]+src="([^"]+)"/g)].map(x => x[1]);
+  const inl = m.inlineImages || {};
+  const allCid = srcs.length > 0 && srcs.every(s => /^cid:img[0-9]+$/.test(s) && inl[s.slice(4)] && inl[s.slice(4)].type === 'image/jpeg' && inl[s.slice(4)].bytes.length > 500);
+  const noExternal = !/<img[^>]+src="https?:/.test(m.htmlBody);
+  const row = title ? (m.htmlBody.split('<tr>').find(r => r.includes(title)) || '') : '';
+  const tablePics = title ? (row.match(/src="cid:/g) || []).length : 0;
+  const kb = Object.values(inl).reduce((a, b) => a + b.bytes.length, 0) / 1024;
+  return { allCid, noExternal, tablePics, n: srcs.length, kb };
+};
 const rowsText = ws => { const out = []; ws.eachRow(r => out.push(r.values.slice(1).map(v => v && v.richText ? v.richText.map(x => x.text).join('') : v))); return out; };
 
 (async () => {
@@ -69,7 +80,10 @@ const rowsText = ws => { const out = []; ws.eachRow(r => out.push(r.values.slice
   ok(env.fetches.every(u => /^https:\/\/dafi-k\.github\.io\/mevoot-hermon-orders\/pic\/thumbs\/.+\.jpg$/.test(u)), 'תמונות מוקטנות מהאתר הציבורי (jpg)');
 
   console.log('--- המייל: שולחן עם 2 תמונות');
-  ok(m1.htmlBody.includes(title) && (m1.htmlBody.match(/pic\/thumbs\/LG-LP2\.jpg/g) || []).length === 1 && /pic\/thumbs\/TOP-\w+\.jpg/.test(m1.htmlBody), 'במייל: תיאור השולחן + תמונת רגל + תמונת פלטה');
+  const i1 = inlineCheck(m1, title);
+  ok(m1.htmlBody.includes(title) && i1.tablePics === 2, 'במייל: תיאור השולחן + תמונת רגל + תמונת פלטה');
+  ok(i1.allCid && i1.noExternal, `במייל: ${i1.n} תמונות בתוך המייל (cid), בלי קישור חיצוני`);
+  ok(i1.kb < 60, `במייל: התמונות קלות - ${i1.kb.toFixed(1)}KB בסך הכל`);
   ok(m1.htmlBody.includes('סה&quot;כ לשולחן'), 'במייל: מחיר רגל ומחיר פלטה בנפרד');
 
   console.log('--- ניסיון חוזר לא יוצר כפילות');
@@ -112,6 +126,8 @@ const rowsText = ws => { const out = []; ws.eachRow(r => out.push(r.values.slice
   const st = id => String(cell(O, id, 'סטטוס מייל'));
   ok(/^נשלח .*\(גיבוי אוטומטי\)/.test(st(old)), 'הזמנה "ממתין" מעל 2 דקות: נשלחה - ' + st(old));
   const mw = env.mails[env.mails.length - 1];
+  const iw = inlineCheck(mw, title);
+  ok(iw.allCid && iw.noExternal && iw.tablePics === 2, 'גיבוי אוטומטי: תמונות בתוך המייל, רגל + פלטה בשורת השולחן');
   ok(env.mails.length === before + 1 && mw.attachments.length === 1 && mw.subject.includes(old), 'בדיוק מייל אחד, עם Excel מצורף');
   ok(st(fresh) === 'ממתין', 'הזמנה בת דקה: עדיין מחכה לאתר');
   ok(st(legacy) === 'ממתין', 'הזמנה ישנה מלפני התקנת הגיבוי: לא נשלחת פתאום');
@@ -129,6 +145,8 @@ const rowsText = ws => { const out = []; ws.eachRow(r => out.push(r.values.slice
   setCell(O, id7, 'סטטוס מייל', 'נשלח 23/11/2026 10:00'); // נשלח בעבר בלי Excel
   r = P({ action: 'resendEmail', token: tk, orderId: id7 });
   const m7 = env.mails[env.mails.length - 1];
+  const i7 = inlineCheck(m7, title);
+  ok(i7.allCid && i7.noExternal && i7.tablePics === 2 && i7.n === 3, 'שלח שוב: תמונות בתוך המייל (רגל + פלטה + כיסא)');
   ok(r.ok && r.attached && m7.subject.includes(id7) && m7.attachments.length === 1, 'שליחה חוזרת כשאין Excel: השרת בונה ומצרף');
   ok(/שליחה חוזרת - דפי/.test(st(id7)) && /^https:\/\/drive/.test(cell(O, id7, 'קובץ Excel')), 'הסטטוס מציין שליחה חוזרת ומי שלח, והקובץ נשמר');
   const nF = Object.keys(env.files).length;
@@ -161,6 +179,7 @@ const rowsText = ws => { const out = []; ws.eachRow(r => out.push(r.values.slice
   r = P2({ action: 'submitOrder', customer: cust('0521000009'), lines: [TABLE] });
   P2({ action: 'sendOrderEmail', orderId: r.orderId, phone: '0521000009' });
   const x2 = await openXlsx(env2.mails[0].attachments[0]);
+  ok(!/<img/.test(env2.mails[0].htmlBody) && !env2.mails[0].inlineImages && env2.mails[0].htmlBody.includes(title), 'תמונות לא נטענו: המייל נשלח בלי תמונות ובלי קישורים');
   ok(x2.ws.getImages().length === 0 && rowsText(x2.ws).some(rw => rw[3] === title), 'Excel נבנה ונפתח גם בלי תמונות');
 
   console.log(fails ? `\n${fails} בדיקות נכשלו` : '\nכל בדיקות הגיבוי עברו');

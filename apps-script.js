@@ -549,8 +549,10 @@ function sendEmailForOrder_(orderId, fileId, via) {
     var total = Number(r[c['סה"כ']]) || 0, budget = Number(r[c['תקציב']]) || 0, over = Number(r[c['חריגה']]) || 0;
     var isTest = String(orderId).indexOf('TEST-') === 0;
     var subject = (isTest ? '[בדיקה] ' : '') + 'הזמנת ריהוט ' + orderId + ' - ' + r[c['שם הצימר']] + ' (' + r[c['ישוב']] + ')';
-    var html = buildEmailHtml_(orderId, f, total, budget, over, isTest);
+    var inline = {}; // תמונות מוקטנות בתוך המייל (cid:) - Gmail לא חוסם אותן כמו קישור חיצוני
+    var html = buildEmailHtml_(orderId, f, total, budget, over, isTest, inline);
     var opts = { subject: subject, htmlBody: html, name: s['שם התוכנית'] || 'נבחרת צימרי מבואות החרמון', attachments: attachments };
+    if (Object.keys(inline).length) opts.inlineImages = inline;
     if (staff.length) { opts.to = staff.join(','); if (customer) opts.cc = customer; opts.replyTo = staff[0]; }
     else opts.to = customer;
     MailApp.sendEmail(opts);
@@ -566,13 +568,24 @@ function sendEmailForOrder_(orderId, fileId, via) {
   }
 }
 
-function buildEmailHtml_(orderId, f, total, budget, over, isTest) {
+// inline: אובייקט שמתמלא בתמונות המוקטנות { img0: blob, ... } ל-MailApp inlineImages
+function buildEmailHtml_(orderId, f, total, budget, over, isTest, inline) {
   var c = f.c, r = f.row;
   var lines = orderLines_(orderId, productMap_(readTable_(SH.PRODUCTS)));
+  // טעינת התמונות המוקטנות (JPEG 160×120, כמה KB כל אחת) בשרת. תמונה שחוזרת (למשל אותה רגל) מצורפת פעם אחת.
+  var files = [];
+  lines.forEach(function (l) { l.imgs.forEach(function (im) { if (files.indexOf(im) < 0) files.push(im); }); });
+  var thumbs = fetchThumbs_(files), cid = {};
+  files.forEach(function (im, i) {
+    if (!thumbs[im] || !inline) return;
+    cid[im] = 'img' + i;
+    inline[cid[im]] = Utilities.newBlob(thumbs[im], 'image/jpeg', thumbName_(im));
+  });
   var td = 'padding:8px 10px;border-bottom:1px solid #E6DDC8;text-align:right;vertical-align:middle;';
   lines = lines.map(function (l) {
-    var pics = l.imgs.map(function (im) {
-      return '<img src="' + esc_(thumbUrl_(im)) + '" width="64" height="48" alt="" style="width:64px;height:48px;border:1px solid #E6DDC8;border-radius:6px;margin:0 0 0 4px;vertical-align:middle">';
+    // שולחן: רגל ואז פלטה. תמונה שלא נטענה פשוט לא מוצגת (בלי קישור חיצוני)
+    var pics = l.imgs.filter(function (im) { return cid[im]; }).map(function (im) {
+      return '<img src="cid:' + cid[im] + '" width="64" height="48" alt="" style="width:64px;height:48px;border:1px solid #E6DDC8;border-radius:6px;margin:0 0 0 4px;vertical-align:middle">';
     }).join('');
     return '<tr><td style="' + td + 'white-space:nowrap">' + pics + '</td><td style="' + td + '"><b>' + esc_(l.name) + '</b>' +
       (l.kind === 'item' && l.color ? ' · ' + esc_(l.color) : '') +
