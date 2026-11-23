@@ -50,6 +50,10 @@ var TZ = 'Asia/Jerusalem';
 var DAYS = ['1.12.26', '2.12.26', '3.12.26'];
 var ST = { NEW: 'חדשה', APPROVED: 'אושרה', SUPPLIED: 'סופקה', CANCELLED: 'בוטלה' };
 var MAIL = { PENDING: 'ממתין', SENT: 'נשלח', FAILED: 'לא נשלח' };
+// כתובת האתר הציבורי - ממנה נלקחות תמונות מוקטנות (pic/thumbs) למייל ול-Excel שנבנה בשרת
+var SITE_URL = 'https://dafi-k.github.io/mevoot-hermon-orders/';
+var XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+var WATCHDOG_MINUTES = 2; // אחרי כמה דקות ב"ממתין" השרת שולח את המייל בעצמו
 
 // =====================================================================
 // הקמה (להריץ מהעורך - בטוח להריץ שוב, לא משכפל ולא מוחק נתונים)
@@ -338,18 +342,12 @@ function submitOrder_(p) {
     // 3. חישוב מחירים - רק מהגיליון
     var out = [], total = 0;
     cl.lines.forEach(function (l) {
-      if (l.type === 'table') {
-        var lg = pm[l.leg], tp = pm[l.top], price = lg.price + tp.price;
-        out.push({ kind: 'table', lid: l.lid, leg: lg, top: tp, qty: l.qty, price: price, subtotal: price * l.qty,
-          code: lg.code + ' + ' + tp.code, sku: lg.sku + ' + ' + tp.sku, name: 'שולחן', color: tp.tone,
-          detail: 'רגל ' + lg.code + ' (' + money_(lg.price) + ') + פלטה ' + tp.tone + ' ' + tp.diameter + ' ס"מ (' + money_(tp.price) + ')',
-          img: tp.img, img2: lg.img });
-      } else {
-        var P = pm[l.id];
-        out.push({ kind: 'item', lid: l.lid, p: P, qty: l.qty, price: P.price, subtotal: P.price * l.qty,
-          code: P.code, sku: P.sku, name: P.name, color: P.color, detail: P.gift ? 'במתנה: ' + P.gift : '', img: P.img });
-      }
-      total += out[out.length - 1].subtotal;
+      var x;
+      if (l.type === 'table') { x = tableLine_(pm[l.leg], pm[l.top], l.qty); x.leg = pm[l.leg]; x.top = pm[l.top]; }
+      else { x = itemLine_(pm[l.id], l.qty, pm[l.id].price, pm[l.id].gift ? 'במתנה: ' + pm[l.id].gift : ''); x.p = pm[l.id]; }
+      x.lid = l.lid;
+      out.push(x);
+      total += x.subtotal;
     });
     var budget = Number(s['תקציב']) || 9500;
     var over = Math.max(0, total - budget);
@@ -378,9 +376,9 @@ function submitOrder_(p) {
     };
     out.forEach(function (l, n) {
       if (l.kind === 'table') {
-        var tag = 'שולחן: ' + l.leg.code + ' + פלטה ' + l.top.tone + ' ' + l.top.diameter;
-        itemRows.push(itemRow(l.leg, l.qty, l.leg.price, tag));
-        itemRows.push(itemRow(l.top, l.qty, l.top.price, tag));
+        // שולחן = 2 שורות (רגל + פלטה) עם אותו "פירוט", כדי שהמלאי והריכוזים יהיו לפי מק"ט
+        itemRows.push(itemRow(l.leg, l.qty, l.leg.price, l.name));
+        itemRows.push(itemRow(l.top, l.qty, l.top.price, l.name));
       } else itemRows.push(itemRow(l.p, l.qty, l.price, l.detail));
     });
     appendRows_(it, itemRows);
@@ -401,10 +399,7 @@ function submitOrder_(p) {
     return {
       ok: true, orderId: orderId, test: isTest, date: fmtDate_(now), customer: c,
       total: total, budget: budget, over: over,
-      lines: out.map(function (l) {
-        return { kind: l.kind, lid: l.lid, code: l.code, sku: l.sku, name: l.name, color: l.color, detail: l.detail,
-          qty: l.qty, price: l.price, subtotal: l.subtotal, img: l.img, img2: l.img2 || '' };
-      })
+      lines: out.map(publicLine_)
     };
   } finally {
     lock.releaseLock();
@@ -412,8 +407,69 @@ function submitOrder_(p) {
 }
 
 // =====================================================================
+// שורות תצוגה של הזמנה (אתר, Excel, PDF, מייל, מסכי ניהול)
+// שולחן מוצג כשורה אחת: תמונת רגל + תמונת פלטה, תיאור ברור, מחיר רגל ומחיר פלטה בנפרד וסה"כ לשולחן.
+// =====================================================================
+function tableTitle_(legCode, tone, dia) { return 'שולחן: רגל ' + legCode + ' + פלטה ' + tone + ' קוטר ' + dia; }
+function tableDetail_(lg, tp) {
+  return 'רגל ' + lg.code + ': ' + money_(lg.price) + ' · פלטה ' + tp.tone + ' ' + tp.diameter + ' ס"מ: ' + money_(tp.price) +
+    ' · סה"כ לשולחן: ' + money_(lg.price + tp.price);
+}
+// lg/tp: {code, sku, price, img, tone, diameter}
+function tableLine_(lg, tp, qty) {
+  var price = lg.price + tp.price;
+  return { kind: 'table', code: lg.code + ' + ' + tp.code, sku: lg.sku + ' + ' + tp.sku, name: tableTitle_(lg.code, tp.tone, tp.diameter),
+    color: tp.tone, detail: tableDetail_(lg, tp), qty: qty, price: price, subtotal: price * qty,
+    legCode: lg.code, legPrice: lg.price, topPrice: tp.price, imgs: [lg.img, tp.img].filter(String) };
+}
+function itemLine_(P, qty, price, detail) {
+  return { kind: 'item', code: P.code, sku: P.sku, name: P.name, color: P.color, detail: detail || '', qty: qty, price: price,
+    subtotal: price * qty, imgs: P.img ? [P.img] : [] };
+}
+function publicLine_(l) {
+  return { kind: l.kind, lid: l.lid, code: l.code, sku: l.sku, name: l.name, color: l.color, detail: l.detail, qty: l.qty,
+    price: l.price, subtotal: l.subtotal, imgs: l.imgs, legPrice: l.legPrice, topPrice: l.topPrice,
+    img: l.imgs[l.imgs.length - 1] || '' };
+}
+// שורות הפריטים של הזמנה מהגיליון -> שורות תצוגה. רגל + פלטה עוקבות עם אותו "פירוט" של שולחן = שולחן אחד.
+// המחירים נלקחים מהשורות שנשמרו בהזמנה (לא מהמחיר הנוכחי בגיליון המוצרים).
+function orderLines_(orderId, pm, it) {
+  it = it || readTable_(SH.ITEMS);
+  var ic = it.col;
+  var rows = it.rows.filter(function (x) { return String(x[ic['מספר הזמנה']]) === String(orderId); });
+  var part = function (r) {
+    var id = String(r[ic['מזהה']]), P = pm[id] || {};
+    return { id: id, kind: P.kind || '', code: String(r[ic['קוד']]), sku: String(r[ic['מק"ט']]), name: String(r[ic['שם']]),
+      color: String(r[ic['צבע']] || ''), price: Number(r[ic['מחיר יחידה']]) || 0, qty: Number(r[ic['כמות']]) || 0,
+      detail: String(r[ic['פירוט']] || ''), img: P.img || '', tone: P.tone || String(r[ic['צבע']] || ''), diameter: P.diameter };
+  };
+  var out = [];
+  for (var i = 0; i < rows.length; i++) {
+    var a = part(rows[i]), b = rows[i + 1] ? part(rows[i + 1]) : null;
+    if (a.kind === 'leg' && b && b.kind === 'top' && /^שולחן/.test(a.detail) && a.detail === b.detail && a.qty === b.qty) {
+      out.push(tableLine_(a, b, a.qty)); i++;
+    } else out.push(itemLine_(a, a.qty, a.price, a.detail));
+  }
+  return out;
+}
+function thumbName_(img) { return String(img || '').replace(/\.[a-z0-9]+$/i, '') + '.jpg'; }
+function thumbUrl_(img) { return SITE_URL + 'pic/thumbs/' + encodeURIComponent(thumbName_(img)); }
+
+// =====================================================================
 // מייל (בקשה נפרדת - כשל כאן לא מבטל את ההזמנה)
 // =====================================================================
+// "תפיסת" שליחה של הזמנה - כדי שהאתר, ניסיון חוזר והגיבוי האוטומטי לא ישלחו אותו מייל פעמיים במקביל
+function claimMail_(orderId) {
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(10000)) return false;
+  try {
+    var cache = CacheService.getScriptCache(), k = 'mailclaim-' + orderId;
+    if (cache.get(k)) return false;
+    cache.put(k, '1', 300);
+    return true;
+  } finally { lock.releaseLock(); }
+}
+function releaseMail_(orderId) { CacheService.getScriptCache().remove('mailclaim-' + orderId); }
 function findOrder_(orderId) {
   var o = readTable_(SH.ORDERS), c = o.col;
   for (var i = 0; i < o.rows.length; i++) {
@@ -439,26 +495,40 @@ function sendOrderEmail_(p) {
   if (!f) return { ok: false, error: 'הזמנה לא נמצאה' };
   if (normPhone_(f.row[f.c['טלפון']]) !== normPhone_(p.phone)) return { ok: false, error: 'פרטי ההזמנה לא תואמים' };
   if (String(f.row[f.c['סטטוס מייל']]).indexOf(MAIL.SENT) === 0) return { ok: true, emailed: true, already: true };
-
-  // שמירת ה-Excel ב-Drive (כדי שאפשר יהיה לשלוח שוב בלי הלקוח)
-  var fileId = '';
+  // שליחה אחרת של אותה הזמנה כבר רצה (ניסיון קודם שהתשובה שלו לא הגיעה, או הגיבוי האוטומטי)
+  if (!claimMail_(p.orderId)) return { ok: true, emailed: false, pending: true };
   try {
-    var b64 = String(p.xlsxBase64 || '');
-    if (b64 && b64.length < 8 * 1024 * 1024) {
-      var name = String(p.xlsxName || (p.orderId + '.xlsx')).replace(/[\\\/:*?"<>|]/g, '_').slice(0, 120);
-      var blob = Utilities.newBlob(Utilities.base64Decode(b64), 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', name);
-      var file = getFilesFolder_().createFile(blob);
-      fileId = file.getId();
-      setOrderField_(f, 'קובץ Excel', file.getUrl());
+    // שמירת ה-Excel מהאתר ב-Drive (רק אם עוד אין קובץ להזמנה - ניסיון חוזר לא יוצר כפילות)
+    var fileId = '';
+    if (!String(f.row[f.c['קובץ Excel']] || '')) {
+      try {
+        var b64 = String(p.xlsxBase64 || '');
+        if (b64 && b64.length < 8 * 1024 * 1024) {
+          var name = String(p.xlsxName || (p.orderId + '.xlsx')).replace(/[\\\/:*?"<>|]/g, '_').slice(0, 120);
+          var file = getFilesFolder_().createFile(Utilities.newBlob(Utilities.base64Decode(b64), XLSX_MIME, name));
+          fileId = file.getId();
+          setOrderField_(f, 'קובץ Excel', file.getUrl());
+        }
+      } catch (e) { /* אם אין קובץ מהאתר - השרת יבנה Excel בעצמו */ }
     }
-  } catch (e) { /* ממשיכים לשלוח גם בלי קובץ */ }
-
-  var res = sendEmailForOrder_(p.orderId, fileId);
-  return { ok: true, emailed: res.ok, error: res.error || '' };
+    var res = sendEmailForOrder_(p.orderId, fileId);
+    return { ok: true, emailed: res.ok, error: res.error || '' };
+  } finally { releaseMail_(p.orderId); }
 }
 
-// שולח את מייל ההזמנה ומעדכן "סטטוס מייל". משמש גם לשליחה חוזרת.
-function sendEmailForOrder_(orderId, fileId) {
+// קובץ ה-Excel של ההזמנה ב-Drive. אם אין (למשל האתר לא הספיק להעלות) - השרת בונה אותו מהגיליון ושומר.
+function ensureOrderXlsx_(f, orderId) {
+  var url = String(f.row[f.c['קובץ Excel']] || '');
+  var m = url.match(/[-\w]{25,}/);
+  if (m) { try { return DriveApp.getFileById(m[0]); } catch (e) { /* הקובץ נמחק - בונים מחדש */ } }
+  var file = getFilesFolder_().createFile(buildOrderXlsx_(orderId));
+  setOrderField_(f, 'קובץ Excel', file.getUrl());
+  f.row[f.c['קובץ Excel']] = file.getUrl();
+  return file;
+}
+
+// שולח את מייל ההזמנה ומעדכן "סטטוס מייל". משמש גם לשליחה חוזרת ולגיבוי האוטומטי.
+function sendEmailForOrder_(orderId, fileId, via) {
   var f = findOrder_(orderId);
   if (!f) return { ok: false, error: 'הזמנה לא נמצאה' };
   var c = f.c, r = f.row, s = getSettings_();
@@ -469,13 +539,12 @@ function sendEmailForOrder_(orderId, fileId) {
     if (!recipients) throw new Error('אין נמענים');
     if (MailApp.getRemainingDailyQuota() < recipients) throw new Error('מכסת המיילים היומית נגמרה');
 
-    if (!fileId) {
-      var url = String(r[c['קובץ Excel']] || '');
-      var m = url.match(/[-\w]{25,}/);
-      if (m) fileId = m[0];
-    }
-    var attachments = [];
-    if (fileId) { try { attachments.push(DriveApp.getFileById(fileId).getBlob()); } catch (e) {} }
+    // Excel מצורף: הקובץ מהאתר, ואם אין - קובץ שהשרת בונה מהגיליון
+    var attachments = [], xlsxNote = '';
+    try {
+      var file = fileId ? DriveApp.getFileById(fileId) : ensureOrderXlsx_(f, orderId);
+      attachments.push(file.getBlob());
+    } catch (e) { xlsxNote = ' (בלי Excel: ' + String(e && e.message || e).slice(0, 80) + ')'; }
 
     var total = Number(r[c['סה"כ']]) || 0, budget = Number(r[c['תקציב']]) || 0, over = Number(r[c['חריגה']]) || 0;
     var isTest = String(orderId).indexOf('TEST-') === 0;
@@ -486,9 +555,10 @@ function sendEmailForOrder_(orderId, fileId) {
     else opts.to = customer;
     MailApp.sendEmail(opts);
     bumpMailCount_(recipients);
-    var note = MAIL.SENT + ' ' + fmtDate_(now_()) + (staff.length ? '' : ' (ללקוח בלבד - אין נמעני צוות בהגדרות)');
+    var note = MAIL.SENT + ' ' + fmtDate_(now_()) + (staff.length ? '' : ' (ללקוח בלבד - אין נמעני צוות בהגדרות)') +
+      (via ? ' (' + via + ')' : '') + xlsxNote;
     setOrderField_(f, 'סטטוס מייל', note);
-    return { ok: true };
+    return { ok: true, attached: attachments.length > 0 };
   } catch (err) {
     var msg = String(err && err.message || err);
     setOrderField_(f, 'סטטוס מייל', MAIL.FAILED + ': ' + msg);
@@ -498,14 +568,17 @@ function sendEmailForOrder_(orderId, fileId) {
 
 function buildEmailHtml_(orderId, f, total, budget, over, isTest) {
   var c = f.c, r = f.row;
-  var it = readTable_(SH.ITEMS), ic = it.col;
-  var rows = it.rows.filter(function (x) { return String(x[ic['מספר הזמנה']]) === String(orderId); });
-  var td = 'padding:8px 10px;border-bottom:1px solid #E6DDC8;text-align:right;';
-  var lines = rows.map(function (x) {
-    return '<tr><td style="' + td + '"><b>' + esc_(x[ic['קוד']]) + '</b></td><td style="' + td + '">' + esc_(x[ic['שם']]) +
-      (x[ic['צבע']] ? ' · ' + esc_(x[ic['צבע']]) : '') + (x[ic['פירוט']] ? '<br><span style="color:#6E6A5E;font-size:12px">' + esc_(x[ic['פירוט']]) + '</span>' : '') +
-      '</td><td style="' + td + 'text-align:center">' + esc_(x[ic['כמות']]) + '</td><td style="' + td + '">' + money_(x[ic['מחיר יחידה']]) +
-      '</td><td style="' + td + 'font-weight:bold">' + money_(x[ic['סה"כ שורה']]) + '</td></tr>';
+  var lines = orderLines_(orderId, productMap_(readTable_(SH.PRODUCTS)));
+  var td = 'padding:8px 10px;border-bottom:1px solid #E6DDC8;text-align:right;vertical-align:middle;';
+  lines = lines.map(function (l) {
+    var pics = l.imgs.map(function (im) {
+      return '<img src="' + esc_(thumbUrl_(im)) + '" width="64" height="48" alt="" style="width:64px;height:48px;border:1px solid #E6DDC8;border-radius:6px;margin:0 0 0 4px;vertical-align:middle">';
+    }).join('');
+    return '<tr><td style="' + td + 'white-space:nowrap">' + pics + '</td><td style="' + td + '"><b>' + esc_(l.name) + '</b>' +
+      (l.kind === 'item' && l.color ? ' · ' + esc_(l.color) : '') +
+      '<br><span style="color:#6E6A5E;font-size:12px">' + esc_(l.code) + (l.detail ? ' · ' + esc_(l.detail) : '') + '</span>' +
+      '</td><td style="' + td + 'text-align:center">' + esc_(l.qty) + '</td><td style="' + td + '">' + money_(l.price) +
+      '</td><td style="' + td + 'font-weight:bold">' + money_(l.subtotal) + '</td></tr>';
   }).join('');
   var info = function (k, v) { return '<tr><td style="padding:3px 0;color:#6E6A5E;width:130px">' + k + '</td><td style="padding:3px 0"><b>' + esc_(v) + '</b></td></tr>'; };
   return '<div dir="rtl" style="font-family:Arial,sans-serif;color:#2F3A26;max-width:680px">' +
@@ -517,7 +590,7 @@ function buildEmailHtml_(orderId, f, total, budget, over, isTest) {
     info('מייל:', r[c['מייל']]) + info('כתובת לאספקה:', r[c['כתובת לאספקה']]) + info('הגעה לאולם:', r[c['יום הגעה לאולם']]) +
     info('תאריך הזמנה:', r[c['תאריך']] instanceof Date ? fmtDate_(r[c['תאריך']]) : r[c['תאריך']]) + '</table>' +
     '<table style="width:100%;border-collapse:collapse;font-size:14px;border:1px solid #E6DDC8">' +
-    '<tr style="background:#5C6B3A;color:#fff"><th style="padding:8px 10px;text-align:right">קוד</th><th style="padding:8px 10px;text-align:right">פריט</th><th style="padding:8px 10px">כמות</th><th style="padding:8px 10px;text-align:right">מחיר</th><th style="padding:8px 10px;text-align:right">סה"כ</th></tr>' +
+    '<tr style="background:#5C6B3A;color:#fff"><th style="padding:8px 10px"></th><th style="padding:8px 10px;text-align:right">פריט</th><th style="padding:8px 10px">כמות</th><th style="padding:8px 10px;text-align:right">מחיר</th><th style="padding:8px 10px;text-align:right">סה"כ</th></tr>' +
     lines + '</table>' +
     '<div style="margin-top:14px;padding:12px 16px;border:1px solid #E6DDC8;border-radius:10px;font-size:15px">' +
     '<div><b>סה"כ הזמנה: ' + money_(total) + '</b></div><div style="color:#6E6A5E">תקציב: ' + money_(budget) + '</div>' +
@@ -533,18 +606,214 @@ function bumpMailCount_(n) {
   props.setProperty(mailKey_(), String(mailCountToday_() + n));
 }
 
-// שליחה חוזרת של כל המיילים שלא נשלחו (להריץ מהעורך עד שיהיה כפתור במסכי הניהול - שלב 5)
+// שליחה חוזרת של כל המיילים שלא נשלחו (אפשר להריץ מהעורך; במסכי הניהול יש כפתור "שלח שוב")
 function resendFailedEmails() {
   var o = readTable_(SH.ORDERS), c = o.col, n = 0, ok = 0;
   o.rows.forEach(function (r) {
-    var st = String(r[c['סטטוס מייל']] || '');
-    if (st.indexOf(MAIL.SENT) === 0 || String(r[c['סטטוס']]) === ST.CANCELLED) return;
+    var st = String(r[c['סטטוס מייל']] || ''), id = String(r[c['מספר הזמנה']]);
+    if (!id || st.indexOf(MAIL.SENT) === 0 || String(r[c['סטטוס']]) === ST.CANCELLED) return;
+    if (!claimMail_(id)) return;
     n++;
-    var res = sendEmailForOrder_(r[c['מספר הזמנה']], '');
-    if (res.ok) ok++;
-    Logger.log(r[c['מספר הזמנה']] + ': ' + (res.ok ? 'נשלח' : 'נכשל - ' + res.error));
+    try {
+      var res = sendEmailForOrder_(id, '');
+      if (res.ok) ok++;
+      Logger.log(id + ': ' + (res.ok ? 'נשלח' : 'נכשל - ' + res.error));
+    } finally { releaseMail_(id); }
   });
   Logger.log('נשלחו ' + ok + ' מתוך ' + n);
+}
+
+// =====================================================================
+// גיבוי אוטומטי: הזמנה שנשארה "ממתין" יותר מ-2 דקות (למשל הדפדפן נסגר או נקטע אחרי השמירה)
+// - השרת בונה את ה-Excel מהגיליון ושולח את המייל בעצמו. רץ כל דקה (טריגר).
+// =====================================================================
+// להריץ פעם אחת מהעורך: מתקין את הטריגר (ומבקש את ההרשאות החדשות). בטוח להריץ שוב.
+function installMailWatchdog() {
+  ScriptApp.getProjectTriggers().forEach(function (t) {
+    if (t.getHandlerFunction() === 'mailWatchdog') ScriptApp.deleteTrigger(t);
+  });
+  ScriptApp.newTrigger('mailWatchdog').timeBased().everyMinutes(1).create();
+  // רק הזמנות מעכשיו והלאה (הזמנות בדיקה ישנות שנשארו "ממתין" לא יישלחו פתאום)
+  PropertiesService.getScriptProperties().setProperty('WATCHDOG_SINCE', String(now_().getTime()));
+  UrlFetchApp.fetch(SITE_URL + 'pic/thumbs/LG-LP1.jpg', { muteHttpExceptions: true }); // מבקש הרשאת גישה לאתר (תמונות ל-Excel)
+  Logger.log('הגיבוי האוטומטי פועל: כל דקה נבדקות הזמנות שנשארו "ממתין" יותר מ-' + WATCHDOG_MINUTES + ' דקות.');
+}
+
+function mailWatchdog() {
+  var since = Number(PropertiesService.getScriptProperties().getProperty('WATCHDOG_SINCE') || 0);
+  var o = readTable_(SH.ORDERS), c = o.col, nowMs = now_().getTime(), sent = 0;
+  for (var i = 0; i < o.rows.length && sent < 10; i++) {
+    var r = o.rows[i], id = String(r[c['מספר הזמנה']] || '');
+    if (!id || String(r[c['סטטוס מייל']] || '').trim() !== MAIL.PENDING || String(r[c['סטטוס']]) === ST.CANCELLED) continue;
+    var d = r[c['תאריך']], t = d instanceof Date ? d.getTime() : 0;
+    if (!t || t < since || nowMs - t < WATCHDOG_MINUTES * 60 * 1000) continue;
+    if (!claimMail_(id)) continue;
+    try {
+      var res = sendEmailForOrder_(id, '', 'גיבוי אוטומטי');
+      sent++;
+      Logger.log(id + ': ' + (res.ok ? 'נשלח (גיבוי אוטומטי)' : 'נכשל - ' + res.error));
+    } finally { releaseMail_(id); }
+  }
+}
+
+// =====================================================================
+// Excel שנבנה בשרת מהגיליון (כשהאתר לא העלה קובץ) - קובץ xlsx אמיתי, עם תמונות מוקטנות
+// =====================================================================
+function xmlEsc_(s) {
+  return String(s === null || s === undefined ? '' : s).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '')
+    .replace(/[&<>"]/g, function (ch) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]; });
+}
+function textBlob_(str, name, type) {
+  var b = Utilities.newBlob('', type || 'application/xml', name);
+  b.setDataFromString(str, 'UTF-8');
+  return b;
+}
+// תמונות מוקטנות (JPEG) מהאתר: { 'LG-LP1.webp': bytes }
+function fetchThumbs_(files) {
+  var out = {};
+  if (!files.length) return out;
+  try {
+    var res = UrlFetchApp.fetchAll(files.map(function (f) { return { url: thumbUrl_(f), muteHttpExceptions: true }; }));
+    res.forEach(function (x, i) { if (x.getResponseCode() === 200) out[files[i]] = x.getContent(); });
+  } catch (e) { /* בלי תמונות - הקובץ עדיין נבנה */ }
+  return out;
+}
+
+function buildOrderXlsx_(orderId) {
+  var f = findOrder_(orderId);
+  if (!f) throw new Error('הזמנה לא נמצאה');
+  var r = f.row, c = f.c;
+  var lines = orderLines_(orderId, productMap_(readTable_(SH.PRODUCTS)));
+  var files = [];
+  lines.forEach(function (l) { l.imgs.forEach(function (im) { if (files.indexOf(im) < 0) files.push(im); }); });
+  var thumbs = fetchThumbs_(files);
+  var date = r[c['תאריך']] instanceof Date ? fmtDate_(r[c['תאריך']]) : String(r[c['תאריך']]);
+  var order = {
+    id: orderId, test: String(orderId).indexOf('TEST-') === 0,
+    total: Number(r[c['סה"כ']]) || 0, budget: Number(r[c['תקציב']]) || 0, over: Number(r[c['חריגה']]) || 0,
+    info: [['שם הצימר', r[c['שם הצימר']] + ', ' + r[c['ישוב']]], ['איש קשר', r[c['איש קשר']]], ['טלפון', r[c['טלפון']]],
+      ['מייל', r[c['מייל']]], ['כתובת לאספקה', r[c['כתובת לאספקה']]], ['הגעה לאולם', r[c['יום הגעה לאולם']]], ['תאריך הזמנה', date]]
+  };
+  var parts = xlsxParts_(order, lines, thumbs);
+  var blobs = parts.map(function (p) {
+    return typeof p.data === 'string' ? textBlob_(p.data, p.name) : Utilities.newBlob(p.data, 'image/jpeg', p.name);
+  });
+  var name = ('הזמנה_' + orderId + '_' + r[c['שם הצימר']]).replace(/[\\\/:*?"<>|]/g, '_').slice(0, 80) + '.xlsx';
+  var zip = Utilities.zip(blobs, name);
+  zip.setContentType(XLSX_MIME);
+  return zip;
+}
+
+// בונה את קבצי ה-XML של ה-xlsx (נבדק מקומית עם ExcelJS ב-tools/test-server.js)
+function xlsxParts_(order, lines, thumbs) {
+  var NS = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main';
+  var NSR = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
+  var COLS = 'ABCDEFGHI';
+  var rowsXml = [], merges = [], anchors = [], media = [], rowN = 0;
+  var cell = function (ci, v, st) {
+    var ref = COLS.charAt(ci) + rowN;
+    if (typeof v === 'number') return '<c r="' + ref + '" s="' + st + '"><v>' + v + '</v></c>';
+    return '<c r="' + ref + '" s="' + st + '" t="inlineStr"><is><t xml:space="preserve">' + xmlEsc_(v) + '</t></is></c>';
+  };
+  var addRow = function (cells, ht) {
+    rowN++;
+    var xml = cells.map(function (x, i) { return x ? cell(i, x[0], x[1]) : ''; }).join('');
+    rowsXml.push('<row r="' + rowN + '"' + (ht ? ' ht="' + ht + '" customHeight="1"' : '') + '>' + xml + '</row>');
+    return rowN;
+  };
+  // סגנונות: 1 כותרת, 2 תווית, 3 כותרת טבלה, 4 טקסט, 5 כמות, 6 כסף, 7 תווית סיכום, 8 סכום, 9 סכום אדום, 10 הערה, 11 שם פריט, 12 סכום ירוק
+  var t = addRow([['נבחרת צימרי מבואות החרמון - הזמנה ' + order.id + (order.test ? ' (בדיקה)' : ''), 1]], 26);
+  merges.push('A' + t + ':I' + t);
+  order.info.forEach(function (kv) {
+    var n = addRow([[kv[0], 2], [String(kv[1] === undefined ? '' : kv[1]), 0]]);
+    merges.push('B' + n + ':E' + n);
+  });
+  addRow([]);
+  addRow(['תמונה', 'קוד', 'מק"ט', 'פריט', 'צבע', 'פירוט', 'כמות', 'מחיר יחידה', 'סה"כ'].map(function (h) { return [h, 3]; }), 22);
+  lines.forEach(function (l) {
+    var n = addRow([['', 4], [l.code, 4], [l.sku, 4], [l.name, 11], [l.color || '', 4], [l.detail || '', 4],
+      [l.qty, 5], [l.price, 6], [l.subtotal, 6]], 46);
+    l.imgs.forEach(function (im, k) {
+      if (!thumbs[im]) return;
+      var mi = media.indexOf(im);
+      if (mi < 0) { media.push(im); mi = media.length - 1; }
+      anchors.push({ row: n - 1, k: k, media: mi });
+    });
+  });
+  addRow([]);
+  var tot = function (label, val, st) { addRow([null, null, null, null, null, null, null, [label, 7], [val, st]]); };
+  tot('סה"כ הזמנה:', order.total, 8);
+  tot('תקציב:', order.budget, 8);
+  if (order.over > 0) tot('לתשלום ע"י הצימר:', order.over, 9); else tot('יתרת תקציב:', order.budget - order.total, 12);
+  var nt = addRow([['הובלה והרכבה כלולות בתוכנית. לשינויים בהזמנה יש לפנות לצוות.', 10]]);
+  merges.push('A' + nt + ':I' + nt);
+
+  var widths = [20, 14, 22, 34, 12, 46, 8, 13, 13];
+  var sheet = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+    '<worksheet xmlns="' + NS + '" xmlns:r="' + NSR + '"><sheetPr><pageSetUpPr fitToPage="1"/></sheetPr>' +
+    '<sheetViews><sheetView rightToLeft="1" workbookViewId="0"/></sheetViews><sheetFormatPr defaultRowHeight="15"/>' +
+    '<cols>' + widths.map(function (w, i) { return '<col min="' + (i + 1) + '" max="' + (i + 1) + '" width="' + w + '" customWidth="1"/>'; }).join('') + '</cols>' +
+    '<sheetData>' + rowsXml.join('') + '</sheetData>' +
+    '<mergeCells count="' + merges.length + '">' + merges.map(function (m) { return '<mergeCell ref="' + m + '"/>'; }).join('') + '</mergeCells>' +
+    '<pageMargins left="0.4" right="0.4" top="0.5" bottom="0.5" header="0.3" footer="0.3"/>' +
+    '<pageSetup orientation="landscape" fitToWidth="1" fitToHeight="0"/>' +
+    (anchors.length ? '<drawing r:id="rId1"/>' : '') + '</worksheet>';
+
+  var font = function (b, i, sz, color) { return '<font>' + (b ? '<b/>' : '') + (i ? '<i/>' : '') + '<sz val="' + sz + '"/><color rgb="' + color + '"/><name val="Arial"/></font>'; };
+  var xf = function (numFmt, fontId, fillId, borderId, align) {
+    return '<xf numFmtId="' + numFmt + '" fontId="' + fontId + '" fillId="' + fillId + '" borderId="' + borderId + '" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1">' +
+      (align ? '<alignment ' + align + '/>' : '') + '</xf>';
+  };
+  var R = 'horizontal="right" vertical="center"';
+  var styles = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="' + NS + '">' +
+    '<numFmts count="1"><numFmt numFmtId="164" formatCode="&quot;₪&quot;#,##0"/></numFmts>' +
+    '<fonts count="8">' + font(0, 0, 11, 'FF2F3A26') + font(1, 0, 11, 'FF6E6A5E') + font(1, 0, 11, 'FFFFFFFF') + font(1, 0, 15, 'FF5C6B3A') +
+    font(1, 0, 11, 'FFB23A2E') + font(0, 1, 11, 'FF6E6A5E') + font(1, 0, 11, 'FF2F3A26') + font(1, 0, 11, 'FF5C6B3A') + '</fonts>' +
+    '<fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill>' +
+    '<fill><patternFill patternType="solid"><fgColor rgb="FF5C6B3A"/><bgColor indexed="64"/></patternFill></fill></fills>' +
+    '<borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border>' +
+    '<border><left/><right/><top/><bottom style="thin"><color rgb="FFE6DDC8"/></bottom><diagonal/></border></borders>' +
+    '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>' +
+    '<cellXfs count="13">' +
+    xf(0, 0, 0, 0, R) + xf(0, 3, 0, 0, R) + xf(0, 1, 0, 0, R) + xf(0, 2, 2, 0, R) +
+    xf(0, 0, 0, 1, R + ' wrapText="1"') + xf(0, 0, 0, 1, 'horizontal="center" vertical="center"') + xf(164, 0, 0, 1, R) +
+    xf(0, 6, 0, 0, R) + xf(164, 6, 0, 0, R) + xf(164, 4, 0, 0, R) + xf(0, 5, 0, 0, R) + xf(0, 6, 0, 1, R + ' wrapText="1"') + xf(164, 7, 0, 0, R) +
+    '</cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>';
+
+  var rel = function (id, type, target) { return '<Relationship Id="' + id + '" Type="' + NSR + '/' + type + '" Target="' + target + '"/>'; };
+  var rels = function (inner) { return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' + inner + '</Relationships>'; };
+  var CT = 'application/vnd.openxmlformats-officedocument.';
+  var parts = [
+    { name: '[Content_Types].xml', data: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">' +
+      '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/>' +
+      '<Default Extension="jpeg" ContentType="image/jpeg"/>' +
+      '<Override PartName="/xl/workbook.xml" ContentType="' + CT + 'spreadsheetml.sheet.main+xml"/>' +
+      '<Override PartName="/xl/worksheets/sheet1.xml" ContentType="' + CT + 'spreadsheetml.worksheet+xml"/>' +
+      '<Override PartName="/xl/styles.xml" ContentType="' + CT + 'spreadsheetml.styles+xml"/>' +
+      (anchors.length ? '<Override PartName="/xl/drawings/drawing1.xml" ContentType="' + CT + 'drawing+xml"/>' : '') + '</Types>' },
+    { name: '_rels/.rels', data: rels(rel('rId1', 'officeDocument', 'xl/workbook.xml')) },
+    { name: 'xl/workbook.xml', data: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="' + NS + '" xmlns:r="' + NSR + '">' +
+      '<sheets><sheet name="הזמנה" sheetId="1" r:id="rId1"/></sheets></workbook>' },
+    { name: 'xl/_rels/workbook.xml.rels', data: rels(rel('rId1', 'worksheet', 'worksheets/sheet1.xml') + rel('rId2', 'styles', 'styles.xml')) },
+    { name: 'xl/styles.xml', data: styles },
+    { name: 'xl/worksheets/sheet1.xml', data: sheet }
+  ];
+  if (anchors.length) {
+    var EMU = 9525, W = 64, H = 48;
+    var drawing = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="' + NSR + '">' +
+      anchors.map(function (a, i) {
+        return '<xdr:oneCellAnchor><xdr:from><xdr:col>0</xdr:col><xdr:colOff>' + (4 + a.k * (W + 4)) * EMU + '</xdr:colOff><xdr:row>' + a.row + '</xdr:row><xdr:rowOff>' + 7 * EMU + '</xdr:rowOff></xdr:from>' +
+          '<xdr:ext cx="' + W * EMU + '" cy="' + H * EMU + '"/><xdr:pic><xdr:nvPicPr><xdr:cNvPr id="' + (i + 2) + '" name="Picture ' + (i + 1) + '"/>' +
+          '<xdr:cNvPicPr><a:picLocks noChangeAspect="1"/></xdr:cNvPicPr></xdr:nvPicPr><xdr:blipFill><a:blip r:embed="rIdImg' + (a.media + 1) + '"/>' +
+          '<a:stretch><a:fillRect/></a:stretch></xdr:blipFill><xdr:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="' + W * EMU + '" cy="' + H * EMU + '"/></a:xfrm>' +
+          '<a:prstGeom prst="rect"><a:avLst/></a:prstGeom></xdr:spPr></xdr:pic><xdr:clientData/></xdr:oneCellAnchor>';
+      }).join('') + '</xdr:wsDr>';
+    parts.push({ name: 'xl/worksheets/_rels/sheet1.xml.rels', data: rels(rel('rId1', 'drawing', '../drawings/drawing1.xml')) });
+    parts.push({ name: 'xl/drawings/drawing1.xml', data: drawing });
+    parts.push({ name: 'xl/drawings/_rels/drawing1.xml.rels', data: rels(media.map(function (m, i) { return rel('rIdImg' + (i + 1), 'image', '../media/image' + (i + 1) + '.jpeg'); }).join('')) });
+    media.forEach(function (m, i) { parts.push({ name: 'xl/media/image' + (i + 1) + '.jpeg', data: thumbs[m] }); });
+  }
+  return parts;
 }
 
 // =====================================================================
@@ -624,6 +893,7 @@ function adminData_(p) {
     (items[id] = items[id] || []).push({ id: r[ic['מזהה']], code: r[ic['קוד']], sku: r[ic['מק"ט']], name: r[ic['שם']], color: r[ic['צבע']],
       detail: r[ic['פירוט']], qty: Number(r[ic['כמות']]) || 0, price: Number(r[ic['מחיר יחידה']]) || 0, subtotal: Number(r[ic['סה"כ שורה']]) || 0 });
   });
+  var pm = productMap_(t);
   var orders = o.rows.filter(function (r) { return r[oc['מספר הזמנה']]; }).map(function (r) {
     var id = String(r[oc['מספר הזמנה']]);
     return {
@@ -631,7 +901,8 @@ function adminData_(p) {
       zimmer: r[oc['שם הצימר']], town: r[oc['ישוב']], contact: r[oc['איש קשר']], phone: normPhone_(r[oc['טלפון']]), email: r[oc['מייל']],
       address: r[oc['כתובת לאספקה']], day: r[oc['יום הגעה לאולם']], total: Number(r[oc['סה"כ']]) || 0, budget: Number(r[oc['תקציב']]) || 0,
       over: Number(r[oc['חריגה']]) || 0, status: String(r[oc['סטטוס']] || ''), mail: String(r[oc['סטטוס מייל']] || ''),
-      excel: String(r[oc['קובץ Excel']] || ''), notes: String(r[oc['הערות צוות']] || ''), items: items[id] || []
+      excel: String(r[oc['קובץ Excel']] || ''), notes: String(r[oc['הערות צוות']] || ''), items: items[id] || [],
+      lines: items[id] ? orderLines_(id, pm, it) : []
     };
   }).reverse();
   var moves = mv.rows.filter(function (r) { return r[mc['מזהה']]; }).map(function (r) {
@@ -746,8 +1017,12 @@ function resendEmail_(p) {
   adminName_(p);
   var f = findOrder_(p.orderId);
   if (!f) return { ok: false, error: 'הזמנה לא נמצאה' };
-  var res = sendEmailForOrder_(p.orderId, '');
-  return { ok: res.ok, error: res.error || '' };
+  if (!claimMail_(p.orderId)) return { ok: false, error: 'המייל של ההזמנה הזו נשלח ממש עכשיו. נסו שוב בעוד דקה.' };
+  try {
+    // אם אין קובץ Excel ב-Drive - השרת בונה אותו מהגיליון ומצרף
+    var res = sendEmailForOrder_(p.orderId, '', 'שליחה חוזרת - ' + adminName_(p));
+    return { ok: res.ok, error: res.error || '', attached: !!res.attached };
+  } finally { releaseMail_(p.orderId); }
 }
 
 // =====================================================================

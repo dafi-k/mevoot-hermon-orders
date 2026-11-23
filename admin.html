@@ -75,6 +75,7 @@ td{padding:8px 10px;border-bottom:1px solid var(--border);vertical-align:middle}
 tr:hover td{background:#FBF8F1}
 td.num,th.num{text-align:center;white-space:nowrap}
 td img{width:42px;height:42px;object-fit:contain;background:#fff;border-radius:6px;display:block}
+td .duo{display:flex;gap:4px}
 tr.out td{background:var(--danger-soft)}
 tr.low td{background:var(--wheat-soft)}
 tr.mis td{outline:2px dashed var(--terra);outline-offset:-2px}
@@ -357,13 +358,22 @@ function orderCard(o) {
       <div><select data-status="${esc(o.id)}" ${o.status === 'בוטלה' ? 'disabled' : ''}>${STATUSES.map(s => `<option ${s === o.status ? 'selected' : ''}>${s}</option>`).join('')}</select></div>
       <div>${bad ? `<div class="mailbad">מייל לא נשלח${o.mail && o.mail !== 'ממתין' ? ': ' + esc(o.mail.replace(/^לא נשלח:\s*/, '')) : ' (ממתין)'}</div><button class="btn btn-ghost btn-sm" data-resend="${esc(o.id)}" style="margin-top:4px">שלח שוב</button>`
         : `<span class="pill ${o.status === 'בוטלה' ? 'p-inf' : 'p-ok'}">${esc(o.mail || '-')}</span>`}
+        ${!bad && !o.excel && o.status !== 'בוטלה' ? `<div class="muted" style="margin-top:4px">נשלח בלי Excel</div><button class="btn btn-ghost btn-sm" data-resend="${esc(o.id)}" style="margin-top:4px">שלח שוב עם Excel</button>` : ''}
         ${o.excel ? `<div><a href="${esc(o.excel)}" target="_blank" rel="noopener" class="muted">קובץ Excel</a></div>` : ''}</div>
     </div>
-    <details class="b"><summary class="linkbtn">פריטים (${o.items.reduce((s, i) => s + i.qty, 0)}) ופרטי אספקה</summary>
+    <details class="b"><summary class="linkbtn">פריטים (${orderLines(o).reduce((s, i) => s + i.qty, 0)}) ופרטי אספקה</summary>
       <p class="muted" style="margin:8px 0">אספקה: ${esc(o.address)} · הגעה לאולם: ${esc(o.day)}${o.notes ? ' · הערות: ' + esc(o.notes) : ''}</p>
-      <div class="tw"><table><thead><tr><th>קוד</th><th>פריט</th><th>פירוט</th><th class="num">כמות</th><th class="num">מחיר</th><th class="num">סה"כ</th></tr></thead><tbody>
-      ${o.items.map(i => `<tr><td><b>${esc(i.code)}</b></td><td>${esc(i.name)}${i.color ? ' · ' + esc(i.color) : ''}</td><td class="muted">${esc(i.detail)}</td><td class="num">${i.qty}</td><td class="num">${money(i.price)}</td><td class="num">${money(i.subtotal)}</td></tr>`).join('')}
+      <div class="tw"><table><thead><tr><th></th><th>קוד</th><th>פריט</th><th>פירוט</th><th class="num">כמות</th><th class="num">מחיר</th><th class="num">סה"כ</th></tr></thead><tbody>
+      ${orderLines(o).map(l => `<tr><td><span class="duo">${(l.imgs || []).map(f => `<img src="pic/${esc(f)}" alt="" loading="lazy">`).join('')}</span></td>
+        <td><b>${esc(l.code)}</b></td><td>${l.kind === 'table' ? `<b>${esc(l.name)}</b>` : esc(l.name) + (l.color ? ' · ' + esc(l.color) : '')}</td>
+        <td class="muted">${esc(l.detail)}</td><td class="num">${l.qty}</td><td class="num">${money(l.price)}</td><td class="num">${money(l.subtotal)}</td></tr>`).join('')}
       </tbody></table></div></details></div>`;
+}
+// שורות תצוגה מהשרת (שולחן = שורה אחת עם רגל + פלטה). גיבוי לשרת בגרסה קודמת: הפריטים כמו שהם.
+function orderLines(o) {
+  if (o.lines && o.lines.length) return o.lines;
+  const byId = Object.fromEntries(D().products.map(p => [p.id, p]));
+  return o.items.map(i => ({ ...i, imgs: byId[i.id] && byId[i.id].img ? [byId[i.id].img] : [] }));
 }
 
 function vTotals() {
@@ -463,7 +473,7 @@ document.addEventListener('click', async e => {
   if (d.adj) { adjModal(d.adj); return; }
   if (d.resend) {
     t.disabled = true; t.innerHTML = '<span class="spin" style="border-color:#ccc;border-top-color:#5C6B3A"></span>';
-    try { const r = await api({ action: 'resendEmail', orderId: d.resend }); toast(r.ok ? 'המייל נשלח' : 'השליחה נכשלה: ' + r.error, !r.ok); load(true); }
+    try { const r = await api({ action: 'resendEmail', orderId: d.resend }); toast(r.ok ? 'המייל נשלח' + (r.attached ? ' עם קובץ Excel' : '') : 'השליחה נכשלה: ' + r.error, !r.ok); load(true); }
     catch (err) { t.disabled = false; t.textContent = 'שלח שוב'; }
   }
 });

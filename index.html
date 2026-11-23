@@ -141,6 +141,12 @@ label.f small{font-weight:400;color:var(--muted);font-size:13px}
 .tline{display:flex;gap:10px;align-items:center;border-top:1px solid var(--border);padding:10px 0}
 .tline:first-child{border-top:0}
 .tline .info{flex:1;font-size:14px}
+.tline .d{font-size:13px;color:var(--muted)}
+/* שולחן: תמונת רגל + תמונת פלטה זו לצד זו */
+.duo{display:flex;gap:4px;flex:0 0 auto}
+.duo img{width:48px;height:48px;object-fit:contain;background:#fff;border-radius:8px;border:1px solid var(--border)}
+.line .duo img{width:48px;height:48px;flex:0 0 48px}
+@media (min-width:600px){.duo img,.line .duo img{width:60px;height:60px;flex-basis:60px}}
 
 /* ---------- פס תקציב תחתון ---------- */
 .budgetbar{position:fixed;bottom:0;left:0;right:0;background:var(--card);border-top:1px solid var(--border);box-shadow:0 -4px 16px rgba(63,74,39,.10);z-index:40;padding:10px 16px calc(10px + env(safe-area-inset-bottom))}
@@ -412,6 +418,10 @@ function animateNum(el, to) {
   };
   requestAnimationFrame(step);
 }
+// אייפד (גם כשהוא מזדהה כ-Mac), אייפון
+const IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const withTimeout = (p, ms) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), ms))]);
 const img = (file, alt, extra) => file ? `<img src="pic/${esc(file)}" alt="${esc(alt)}" loading="lazy" decoding="async" ${extra || ''} onerror="this.style.visibility='hidden'">` : '';
 
 // =====================================================================
@@ -530,9 +540,16 @@ function linePrice(l) {
 }
 function lineTitle(l) {
   if (l.type === 'item') { const p = S.byId[l.id]; return `${p.name} (${p.code})`; }
-  const t = S.byId[l.top];
-  return `שולחן ${S.byId[l.leg].code} + פלטה ${t.tone} ${t.diameter}`;
+  return tableInfo(l).title;
 }
+// שולחן: תיאור ברור, מחיר רגל ומחיר פלטה בנפרד וסה"כ לשולחן (אותו נוסח כמו בשרת, ב-Excel ובמייל)
+function tableInfo(l) {
+  const lg = S.byId[l.leg], tp = S.byId[l.top];
+  return { lg, tp, title: `שולחן: רגל ${lg.code} + פלטה ${tp.tone} קוטר ${tp.diameter}`,
+    detail: `רגל ${lg.code}: ${money(lg.price)} · פלטה ${tp.tone} ${tp.diameter} ס"מ: ${money(tp.price)} · סה"כ לשולחן: ${money(lg.price + tp.price)}` };
+}
+// תמונת רגל + תמונת פלטה זו לצד זו
+const duo = (legImg, topImg) => `<span class="duo">${img(legImg, 'רגל')}${img(topImg, 'פלטה')}</span>`;
 function cartTotal() { return S.cart.reduce((s, l) => s + linePrice(l) * l.qty, 0); }
 function cartCount() { return S.cart.reduce((s, l) => s + l.qty, 0); }
 function catCount(cat) {
@@ -724,9 +741,9 @@ function renderTablesTab() {
     <button class="btn btn-primary" data-build="1" ${S.live ? '' : 'disabled'}>${S.live ? 'בנה שולחן' : 'בודק מלאי...'}</button></div></div>`;
   if (tables.length) {
     h += `<div class="panel"><h2>השולחנות שלך</h2>` + tables.map(l => {
-      const lg = S.byId[l.leg], tp = S.byId[l.top];
-      return `<div class="tline">${img(tp.img, '', 'style="width:56px;height:56px;object-fit:contain"')}
-        <div class="info"><b>${esc(lineTitle(l))}</b><br>${l.qty} × ${money(lg.price + tp.price)}</div>
+      const t = tableInfo(l);
+      return `<div class="tline">${duo(t.lg.img, t.tp.img)}
+        <div class="info"><b>${esc(t.title)}</b><div class="d">${esc(t.detail)}</div>${l.qty} × ${money(t.lg.price + t.tp.price)} = <b>${money((t.lg.price + t.tp.price) * l.qty)}</b></div>
         <button class="linkbtn" data-editt="${l.lid}">עריכה</button></div>`;
     }).join('') + '</div>';
   }
@@ -820,11 +837,10 @@ function renderSummary() {
   } else {
     $('#lines').innerHTML = S.cart.map(l => {
       const max = maxForLine(l), sh = S.shortages[l.lid];
-      let pic, sub;
-      if (l.type === 'item') { const p = S.byId[l.id]; pic = p.img; sub = [p.code, p.color, p.gift ? 'במתנה: ' + p.gift : ''].filter(Boolean).join(' · '); }
-      else { const lg = S.byId[l.leg], tp = S.byId[l.top]; pic = tp.img; sub = `רגל ${lg.code} (${money(lg.price)}) + פלטה ${tp.code} ${tp.tone} ${tp.diameter} ס"מ (${money(tp.price)})`; }
-      const name = l.type === 'item' ? S.byId[l.id].name : 'שולחן';
-      return `<div class="line ${sh ? 'short' : ''}">${img(pic, name)}
+      let pics, sub, name;
+      if (l.type === 'item') { const p = S.byId[l.id]; name = p.name; pics = img(p.img, name); sub = [p.code, p.color, p.gift ? 'במתנה: ' + p.gift : ''].filter(Boolean).join(' · '); }
+      else { const t = tableInfo(l); name = t.title; pics = duo(t.lg.img, t.tp.img); sub = t.detail; }
+      return `<div class="line ${sh ? 'short' : ''}">${pics}
         <div class="info"><div class="t">${esc(name)}</div><div class="d">${esc(sub)}</div>
           ${sh ? `<div class="short-msg">${esc(sh)}</div>` : ''}
           <div class="stepper"><button data-ldec="${l.lid}" aria-label="פחות">−</button><span class="q">${l.qty}</span><button data-linc="${l.lid}" aria-label="עוד" ${S.live && l.qty < max ? '' : 'disabled'}>+</button></div>
@@ -961,28 +977,46 @@ async function onOrderSaved(res) {
   renderSuccess();
   loadLive(true);
   S.idleTimer = setTimeout(() => { if (S.screen === 5) resetAll(); }, 10 * 60 * 1000); // חזרה אוטומטית אחרי 10 דקות
+  order.mail = 'sending';
+  renderSuccess();
 
-  // קבצים
+  // 1. Excel בזיכרון בלבד - עוד בלי שום הורדה למכשיר
   try {
-    await loadLibs();
-    order.xlsx = await buildXlsx(order);
+    order.xlsx = await withTimeout(loadLibs().then(() => buildXlsx(order)), 20000);
+  } catch (e) { /* בלי קובץ מהאתר - השרת יבנה את ה-Excel מהגיליון */ }
+
+  // 2. הבקשה לשרת (מייל + Excel ל-Drive) יוצאת לפני כל הורדה.
+  //    בספארי באייפד הורדת קובץ מחליפה/מקפיאה את הדף, ובקשה שיוצאת אחריה לא נשלחת.
+  order.mail = await sendOrderMail(order);
+  renderSuccess();
+
+  // 3. הורדות למכשיר - רק אחרי שהשרת ענה. באייפד/אייפון לא מורידים אוטומטית (רק בכפתורים).
+  if (IS_IOS) return;
+  try {
+    if (!order.xlsx) { await loadLibs(); order.xlsx = await buildXlsx(order); }
     download(order.xlsx.blob, order.xlsx.name);
-    order.files = 'xlsx';
   } catch (e) { order.filesErr = 'יצירת קובץ ה-Excel נכשלה'; }
   try {
     order.pdf = await buildPdf(order);
     download(order.pdf.blob, order.pdf.name);
   } catch (e) { order.filesErr = (order.filesErr ? order.filesErr + ' · ' : '') + 'יצירת קובץ ה-PDF נכשלה'; }
-  order.mail = 'sending';
   renderSuccess();
+}
 
-  // מייל - בקשה נפרדת. כשל כאן לא מבטל את ההזמנה.
-  try {
-    const m = await api({ action: 'sendOrderEmail', orderId: order.orderId, phone: order.customer.phone,
-      xlsxBase64: order.xlsx ? order.xlsx.b64 : '', xlsxName: order.xlsx ? order.xlsx.name : '' }, 60000);
-    order.mail = m && m.ok && m.emailed ? 'sent' : 'failed';
-  } catch (e) { order.mail = 'failed'; }
-  renderSuccess();
+// מייל ההזמנה - בקשה נפרדת, עם ניסיון חוזר. כשל כאן לא מבטל את ההזמנה.
+// בשרת: ניסיון חוזר לא שולח פעמיים, ואם שום בקשה לא הגיעה - הגיבוי בשרת שולח אחרי 2 דקות.
+async function sendOrderMail(order) {
+  const body = { action: 'sendOrderEmail', orderId: order.orderId, phone: order.customer.phone,
+    xlsxBase64: order.xlsx ? order.xlsx.b64 : '', xlsxName: order.xlsx ? order.xlsx.name : '' };
+  const waits = [0, 2000, 5000];
+  for (const w of waits) {
+    if (w) await sleep(w);
+    try {
+      const m = await api(body, 45000);
+      if (m && m.ok) return m.emailed ? 'sent' : m.pending ? 'pending' : 'failed';
+    } catch (e) { /* רשת / זמן - מנסים שוב */ }
+  }
+  return 'failed';
 }
 
 function renderSuccess() {
@@ -998,26 +1032,29 @@ function renderSuccess() {
       ${o.over > 0 ? `<div class="over-txt"><b>מעל התקציב - לתשלום על ידי בעל/ת הצימר</b><b>${money(o.over)}</b></div>` : `<div><span>יתרת תקציב</span><span>${money(o.budget - o.total)}</span></div>`}
     </div>`;
   const mail = o.mail === 'sent' ? `✓ אישור נשלח במייל ל-${esc(c.email)}`
+    : o.mail === 'pending' ? `האישור במייל יישלח ל-${esc(c.email)} בדקות הקרובות.`
     : o.mail === 'failed' ? 'המייל לא נשלח כרגע. ההזמנה נקלטה, והצוות ישלח את האישור בהמשך.'
-    : o.mail === 'sending' ? 'שולחים אישור במייל...' : 'מכינים את הקבצים...';
+    : 'שולחים אישור במייל...';
   $('#okMail').innerHTML = `<div class="note ${o.mail === 'failed' ? 'terra' : ''}">${mail}</div>` +
+    (IS_IOS && o.mail !== 'sending' ? '<div class="note" style="margin-top:8px">לשמירת ההזמנה במכשיר - בכפתורים למטה.</div>' : '') +
     (o.filesErr ? `<div class="note terra" style="margin-top:8px">${esc(o.filesErr)}. אפשר לנסות שוב בכפתורים למטה.</div>` : '');
-  $('#dlX').disabled = !o.xlsx && o.mail !== 'sent' && o.mail !== 'failed';
-  $('#dlP').disabled = !o.pdf && o.mail !== 'sent' && o.mail !== 'failed';
+  // עד שהבקשה לשרת חוזרת - אין הורדות (הורדה בזמן הבקשה עלולה לקטוע אותה)
+  $('#dlX').disabled = $('#dlP').disabled = o.mail === 'sending';
 }
 
 function download(blob, name) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a'); a.href = url; a.download = name;
+  if (IS_IOS) a.target = '_blank'; // באייפד הקובץ נפתח בלשונית חדשה, ודף האישור נשאר
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 4000);
 }
 const fileBase = o => `הזמנה_${o.orderId}_${o.customer.zimmer}`.replace(/[\\\/:*?"<>|]/g, '_').slice(0, 80);
 
 // ---------- Excel עם תמונות מוקטנות (כמו ב-GLOW UP) ----------
-// תמונה ממוזערת 80×60 כ-JPEG דרך Canvas (Excel לא תומך ב-webp)
-async function makeThumb(file) {
-  if (!file) return null;
+// תמונות השורה (שולחן: רגל ואז פלטה). תואם גם לתשובה ישנה של השרת (img / img2).
+const lineImgs = l => l.imgs || [l.img2, l.img].filter(Boolean);
+async function loadImg(file) {
   try {
     const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), 5000);
     const r = await fetch('pic/' + file, { signal: ctl.signal }); clearTimeout(t);
@@ -1025,24 +1062,33 @@ async function makeThumb(file) {
     const blob = await r.blob();
     return await new Promise(res => {
       const im = new Image(), u = URL.createObjectURL(blob);
-      im.onload = () => {
-        URL.revokeObjectURL(u);
-        const cv = document.createElement('canvas'); cv.width = 160; cv.height = 120;
-        const g = cv.getContext('2d'), k = Math.min(160 / im.width, 120 / im.height);
-        g.fillStyle = '#fff'; g.fillRect(0, 0, 160, 120);
-        g.drawImage(im, (160 - im.width * k) / 2, (120 - im.height * k) / 2, im.width * k, im.height * k);
-        res(cv.toDataURL('image/jpeg', 0.8).split(',')[1]);
-      };
+      im.onload = () => { URL.revokeObjectURL(u); res(im); };
       im.onerror = () => { URL.revokeObjectURL(u); res(null); };
       im.src = u;
     });
   } catch (e) { return null; }
 }
+// תמונה ממוזערת כ-JPEG דרך Canvas (Excel לא תומך ב-webp). כמה תמונות -> זו לצד זו בתמונה אחת.
+async function makeThumb(files) {
+  files = (files || []).filter(Boolean);
+  if (!files.length) return null;
+  const ims = (await Promise.all(files.map(loadImg))).filter(Boolean);
+  if (!ims.length) return null;
+  const W = 160, H = 120, GAP = 10;
+  const cv = document.createElement('canvas'); cv.width = W * ims.length + GAP * (ims.length - 1); cv.height = H;
+  const g = cv.getContext('2d');
+  g.fillStyle = '#fff'; g.fillRect(0, 0, cv.width, H);
+  ims.forEach((im, i) => {
+    const k = Math.min(W / im.width, H / im.height), x = i * (W + GAP);
+    g.drawImage(im, x + (W - im.width * k) / 2, (H - im.height * k) / 2, im.width * k, im.height * k);
+  });
+  return { b64: cv.toDataURL('image/jpeg', 0.8).split(',')[1], w: cv.width, h: H };
+}
 
 async function buildXlsx(o) {
   const wb = new ExcelJS.Workbook();
   const ws = wb.addWorksheet('הזמנה', { views: [{ rightToLeft: true }], pageSetup: { orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0 } });
-  ws.columns = [{ width: 12 }, { width: 14 }, { width: 22 }, { width: 30 }, { width: 14 }, { width: 40 }, { width: 8 }, { width: 13 }, { width: 13 }];
+  ws.columns = [{ width: 20 }, { width: 14 }, { width: 22 }, { width: 34 }, { width: 12 }, { width: 46 }, { width: 8 }, { width: 13 }, { width: 13 }];
   const OLIVE = 'FF5C6B3A', CREAM = 'FFF7F3EA', BORDER = 'FFE6DDC8';
   const title = ws.addRow([`נבחרת צימרי מבואות החרמון - הזמנה ${o.orderId}${o.test ? ' (בדיקה)' : ''}`]);
   ws.mergeCells(title.number, 1, title.number, 9);
@@ -1061,18 +1107,20 @@ async function buildXlsx(o) {
     cell.font = { color: { argb: 'FFFFFFFF' }, bold: true };
     cell.alignment = { horizontal: 'right', vertical: 'middle' };
   });
-  const thumbs = await Promise.all(o.lines.map(l => makeThumb(l.img)));
+  const thumbs = await Promise.all(o.lines.map(l => makeThumb(lineImgs(l))));
   o.lines.forEach((l, i) => {
     const r = ws.addRow(['', l.code, l.sku, l.name, l.color || '', l.detail || '', l.qty, l.price, l.subtotal]);
-    r.height = 58;
+    r.height = 46;
     r.eachCell({ includeEmpty: true }, (cell, n) => {
       cell.alignment = { horizontal: n === 7 ? 'center' : 'right', vertical: 'middle', wrapText: n === 6 || n === 4 || n === 3 };
       cell.border = { bottom: { style: 'thin', color: { argb: BORDER } } };
+      if (n === 4) cell.font = { bold: true };
       if (n >= 8) cell.numFmt = '"₪"#,##0';
     });
-    if (thumbs[i]) {
-      const id = wb.addImage({ base64: thumbs[i], extension: 'jpeg' });
-      ws.addImage(id, { tl: { col: 0, row: r.number - 1, nativeColOff: 3 * 9525, nativeRowOff: 3 * 9525 }, ext: { width: 70, height: 52 }, editAs: 'oneCell' });
+    const th = thumbs[i];
+    if (th) {
+      const id = wb.addImage({ base64: th.b64, extension: 'jpeg' });
+      ws.addImage(id, { tl: { col: 0, row: r.number - 1, nativeColOff: 4 * 9525, nativeRowOff: 7 * 9525 }, ext: { width: Math.round(th.w * 48 / th.h), height: 48 }, editAs: 'oneCell' });
     }
   });
   ws.addRow([]);
@@ -1100,8 +1148,8 @@ async function buildPdf(o) {
   const c = o.customer;
   const td = 'padding:7px 8px;border-bottom:1px solid #E6DDC8;font-size:12px;vertical-align:middle;';
   const rows = o.lines.map(l => `<tr>
-      <td style="${td}width:62px">${l.img ? `<img src="pic/${esc(l.img)}" style="width:54px;height:54px;object-fit:contain;background:#fff">` : ''}</td>
-      <td style="${td}"><b>${esc(l.name)}</b>${l.color ? ' · ' + esc(l.color) : ''}<br><span style="color:#6E6A5E;font-size:11px">${esc(l.code)}${l.detail ? ' · ' + esc(l.detail) : ''}</span></td>
+      <td style="${td}width:112px;white-space:nowrap">${lineImgs(l).map(f => `<img src="pic/${esc(f)}" style="width:50px;height:50px;object-fit:contain;background:#fff;margin-left:4px">`).join('')}</td>
+      <td style="${td}"><b>${esc(l.name)}</b>${l.color && l.kind !== 'table' ? ' · ' + esc(l.color) : ''}<br><span style="color:#6E6A5E;font-size:11px">${esc(l.code)}${l.detail ? ' · ' + esc(l.detail) : ''}</span></td>
       <td style="${td}text-align:center">${l.qty}</td>
       <td style="${td}">${money(l.price)}</td>
       <td style="${td}font-weight:700">${money(l.subtotal)}</td></tr>`).join('');

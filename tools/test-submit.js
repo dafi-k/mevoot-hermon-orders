@@ -87,8 +87,11 @@ const T = (leg, top, qty) => ({ lid: Math.floor(Math.random() * 1e9), type: 'tab
     const ws = wb.worksheets[0];
     ok(ws.views[0].rightToLeft === true, 'Excel: גיליון מימין לשמאל');
     ok(ws.getImages().length === 4, `Excel: ${ws.getImages().length} תמונות מוקטנות מוטמעות (4 שורות)`);
-    let found = 0; ws.eachRow(r => { if (r.values.includes('שולחן')) found++; if (r.values.includes(expTotal)) found++; });
-    ok(found >= 2, 'Excel: שורת שולחן וסה"כ נכון');
+    let found = 0, tRow = 0;
+    ws.eachRow((r, n) => { if (r.values.some(v => /^שולחן: רגל LP\d \+ פלטה .+ קוטר \d+$/.test(v))) { found++; tRow = n; } if (r.values.includes(expTotal)) found++; });
+    ok(found >= 2, 'Excel: שורת שולחן ("שולחן: רגל ... + פלטה ... קוטר ...") וסה"כ נכון');
+    const ti = ws.getImages().find(im => im.range.tl.nativeRow === tRow - 1);
+    ok(ti && ti.range.ext.width > ti.range.ext.height * 2, 'Excel: בשורת השולחן תמונת רגל + תמונת פלטה זו לצד זו');
   }
   if (pdf) {
     const p = path.join(OUT, 'order.pdf'); await pdf.saveAs(p);
